@@ -99,6 +99,35 @@ See [plan.md](./plan.md) for the full schema and API reference.
 - **markets** — id, creator_id, title, description, yes_pool, no_pool, min_stake, max_stake, resolved, resolution, created_at
 - **bets** — id, user_id, market_id, side (yes/no), amount, created_at
 
+## Git Workflow
+
+**Always run git commands outside the sandbox** (set `requestUnsandboxedExecution=true`).
+
+After completing a feature or fix:
+
+1. **Stage and commit** with a descriptive message:
+   ```bash
+   git add -A && git commit -m "feat: short description of what changed"
+   ```
+   Use conventional prefixes: `feat:`, `fix:`, `refactor:`, `chore:`, `docs:`.
+
+2. **If the change is a feature** (not a minor fix or config tweak), create a branch first:
+   ```bash
+   git checkout -b feature/description
+   git add -A && git commit -m "feat: description"
+   ```
+
+3. **Push to GitHub** after verifying the server still starts:
+   ```bash
+   git push origin main
+   # Or if on a feature branch:
+   git push -u origin feature/description
+   ```
+
+4. **Never commit secrets.** `.env` is in `.gitignore`. If a secret slips in, force-push a clean commit immediately.
+
+5. **Don't push** `.vscode/`, `node_modules/`, or `data.db` — all covered by `.gitignore`.
+
 ## File Structure
 
 ```
