@@ -242,15 +242,28 @@ window.toggleVoters = async function(marketId, button) {
   content.classList.add('expanded');
 };
 
+// --- Market Actions (edit/delete) ---
+function renderMarketActions(m) {
+  const isCreator = currentUser && m.creator_username === currentUser.username;
+  const isAdmin = currentUser && currentUser.role === 'admin';
+  if (!isCreator && !isAdmin) return '';
+  if (m.resolved === 1) return '';
+  return `
+    <div class="market-actions">
+      <button class="btn btn-sm btn-outline action-btn" onclick="editMarket(${m.id}, '${esc(m.title.replace(/'/g, "\\'"))}', '${esc(m.description.replace(/'/g, "\\'"))}')">Edit</button>
+      <button class="btn btn-sm btn-outline action-btn btn-danger-outline" onclick="deleteMarket(${m.id}, '${esc(m.title.replace(/'/g, "\\'"))}')">Delete</button>
+    </div>`;
+}
+
 // --- Render Markets ---
-function renderMarkets(markets) {
+function renderMarkets(markets, emptyIcon = '📊', emptyText = 'No active markets yet') {
   const container = $('#markets-list');
   if (!markets.length) {
     container.innerHTML = `
       <div class="empty-state">
-        <div class="empty-state-icon">📊</div>
-        <div class="empty-state-text">No active markets yet</div>
-        <button class="btn btn-primary" onclick="$('#new-market-btn').click()">Create First Market</button>
+        <div class="empty-state-icon">${emptyIcon}</div>
+        <div class="empty-state-text">${emptyText}</div>
+        ${emptyText.includes('active') ? '<button class="btn btn-primary" onclick="$(\'#new-market-btn\').click()">Create First Market</button>' : ''}
       </div>`;
     return;
   }
@@ -332,6 +345,7 @@ function renderMarkets(markets) {
             <div class="voters-loading">Loading...</div>
           </div>
         </div>
+        ${renderMarketActions(m)}
         ${betSection}
         ${resolveSection}
       </div>`;
@@ -362,6 +376,24 @@ function renderBetHistory(bets) {
       ? `<span class="resolved-badge resolved-${b.resolution}">Resolved: ${b.resolution.toUpperCase()}</span>`
       : '<span class="resolved-badge">Open</span>';
 
+    let payoutInfo = '';
+    if (b.resolved === 1) {
+      if (b.won) {
+        payoutInfo = `
+          <div class="payout-info payout-win">
+            <span class="payout-label">Won</span>
+            <span class="payout-amount">+${b.profit} tokens</span>
+            <span class="payout-total">(received ${b.payout})</span>
+          </div>`;
+      } else {
+        payoutInfo = `
+          <div class="payout-info payout-loss">
+            <span class="payout-label">Lost</span>
+            <span class="payout-amount">-${b.amount} tokens</span>
+          </div>`;
+      }
+    }
+
     return `
       <div class="history-card">
         <div class="history-header">
@@ -373,9 +405,37 @@ function renderBetHistory(bets) {
           <span class="history-amount">${b.amount} tokens</span>
           <span class="history-date">${new Date(b.created_at * 1000).toLocaleString()}</span>
         </div>
+        ${payoutInfo}
       </div>`;
   }).join('');
 }
+
+// --- Edit Market ---
+window.editMarket = async function (marketId, title, description) {
+  const newTitle = prompt('Edit market title:', title);
+  if (newTitle === null) return;
+  const newDesc = prompt('Edit description:', description);
+  if (newDesc === null) return;
+  try {
+    await api(`/api/markets/${marketId}`, { method: 'PATCH', body: JSON.stringify({ title: newTitle, description: newDesc }) });
+    loadMarkets();
+    showToast('Market updated', 'success');
+  } catch (err) {
+    showToast(err.message);
+  }
+};
+
+// --- Delete Market ---
+window.deleteMarket = async function (marketId, title) {
+  if (!confirm(`Delete market "${title}"? This will also remove all bets on it.`)) return;
+  try {
+    await api(`/api/markets/${marketId}`, { method: 'DELETE' });
+    loadMarkets();
+    showToast('Market deleted', 'success');
+  } catch (err) {
+    showToast(err.message);
+  }
+};
 
 // --- Place Bet ---
 window.placeBet = async function (marketId, side) {
@@ -415,8 +475,17 @@ $$('.nav-link').forEach((btn) => {
 // --- Load Data ---
 async function loadMarkets() {
   try {
-    const markets = await api('/api/markets?type=active');
-    renderMarkets(markets);
+    const search = $('#market-search')?.value.trim() || '';
+    const sort = $('#market-sort')?.value || 'newest';
+    const params = new URLSearchParams({ type: 'active' });
+    if (search) params.set('search', search);
+    let markets = await api(`/api/markets?${params}`);
+
+    // Client-side sorting
+    if (sort === 'oldest') markets.sort((a, b) => a.created_at - b.created_at);
+    else if (sort === 'popular') markets.sort((a, b) => (b.bet_count || 0) - (a.bet_count || 0));
+
+    renderMarkets(markets, '📊', search ? 'No markets match your search' : 'No active markets yet');
   } catch {
     renderMarkets([]);
   }
@@ -424,12 +493,29 @@ async function loadMarkets() {
 
 async function loadLegacyMarkets() {
   try {
-    const markets = await api('/api/markets?type=resolved');
-    renderMarketsLegacy(markets);
+    const search = $('#legacy-search')?.value.trim() || '';
+    const params = new URLSearchParams({ type: 'resolved' });
+    if (search) params.set('search', search);
+    let markets = await api(`/api/markets?${params}`);
+
+    renderMarketsLegacy(markets, search ? 'No resolved markets match your search' : 'No resolved markets yet');
   } catch {
     renderMarketsLegacy([]);
   }
 }
+
+// --- Search & Sort Handlers ---
+let searchDebounce = null;
+$('#market-search')?.addEventListener('input', () => {
+  clearTimeout(searchDebounce);
+  searchDebounce = setTimeout(loadMarkets, 300);
+});
+$('#market-sort')?.addEventListener('change', loadMarkets);
+let legacySearchDebounce = null;
+$('#legacy-search')?.addEventListener('input', () => {
+  clearTimeout(legacySearchDebounce);
+  legacySearchDebounce = setTimeout(loadLegacyMarkets, 300);
+});
 
 async function loadLeaderboard() {
   try {
@@ -564,13 +650,13 @@ function renderLeaderboard(users) {
 }
 
 // --- Render Legacy Markets (simplified, no betting) ---
-function renderMarketsLegacy(markets) {
+function renderMarketsLegacy(markets, emptyText = 'No resolved markets yet') {
   const container = $('#legacy-list');
   if (!markets.length) {
     container.innerHTML = `
       <div class="empty-state">
         <div class="empty-state-icon">📜</div>
-        <div class="empty-state-text">No resolved markets yet</div>
+        <div class="empty-state-text">${emptyText}</div>
       </div>`;
     return;
   }
@@ -623,6 +709,7 @@ function renderMarketsLegacy(markets) {
             <div class="voters-loading">Loading...</div>
           </div>
         </div>
+        ${renderMarketActions(m)}
       </div>`;
   }).join('');
 }

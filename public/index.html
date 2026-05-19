@@ -140,13 +140,28 @@
 
     <!-- Markets List (Active) -->
     <section id="markets-section" class="page hidden">
-      <h2>Active Markets</h2>
+      <div class="markets-toolbar">
+        <h2>Active Markets</h2>
+        <div class="markets-filters">
+          <input type="text" id="market-search" class="search-input" placeholder="Search markets..." />
+          <select id="market-sort">
+            <option value="newest">Newest first</option>
+            <option value="oldest">Oldest first</option>
+            <option value="popular">Most bets</option>
+          </select>
+        </div>
+      </div>
       <div id="markets-list" class="markets-list"></div>
     </section>
 
     <!-- Legacy Markets -->
     <section id="legacy-section" class="page hidden">
-      <h2>Market History</h2>
+      <div class="markets-toolbar">
+        <h2>Market History</h2>
+        <div class="markets-filters">
+          <input type="text" id="legacy-search" class="search-input" placeholder="Search resolved markets..." />
+        </div>
+      </div>
       <p class="page-hint">Previously resolved markets.</p>
       <div id="legacy-list" class="markets-list"></div>
     </section>

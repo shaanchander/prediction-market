@@ -112,6 +112,11 @@ const countAdmins = db.prepare("SELECT COUNT(*) AS cnt FROM users WHERE role = '
 const insertMarket = db.prepare(
   'INSERT INTO markets (creator_id, title, description, min_stake, max_stake, created_at) VALUES (?, ?, ?, ?, ?, ?)'
 );
+const updateMarket = db.prepare(
+  'UPDATE markets SET title = ?, description = ? WHERE id = ?'
+);
+const deleteMarket = db.prepare('DELETE FROM markets WHERE id = ?');
+
 const getActiveMarkets = db.prepare(`
   SELECT m.*, u.username AS creator_username 
   FROM markets m 
@@ -130,6 +135,13 @@ const getAllMarkets = db.prepare(`
   SELECT m.*, u.username AS creator_username 
   FROM markets m 
   JOIN users u ON m.creator_id = u.id 
+  ORDER BY m.created_at DESC
+`);
+const searchMarkets = db.prepare(`
+  SELECT m.*, u.username AS creator_username 
+  FROM markets m 
+  JOIN users u ON m.creator_id = u.id 
+  WHERE m.title LIKE ? OR m.description LIKE ?
   ORDER BY m.created_at DESC
 `);
 const getMarketById = db.prepare('SELECT * FROM markets WHERE id = ?');
@@ -164,7 +176,7 @@ const getBetCountForMarket = db.prepare(
 );
 
 const getUserBets = db.prepare(`
-  SELECT b.*, m.title AS market_title, m.resolved, m.resolution
+  SELECT b.*, m.title AS market_title, m.resolved, m.resolution, m.yes_pool, m.no_pool
   FROM bets b
   JOIN markets m ON b.market_id = m.id
   WHERE b.user_id = ?
@@ -338,23 +350,78 @@ function getBetCounts(marketIds) {
 app.get('/api/markets', (req, res) => {
   try {
     const type = req.query.type || 'all';
+    const search = req.query.search || '';
     let markets;
-    if (type === 'active') {
+
+    if (search) {
+      const pattern = `%${search}%`;
+      markets = searchMarkets.all(pattern, pattern);
+      // Filter by type if specified
+      if (type === 'active') markets = markets.filter(m => m.resolved === 0);
+      else if (type === 'resolved') markets = markets.filter(m => m.resolved === 1);
+    } else if (type === 'active') {
       markets = getActiveMarkets.all();
     } else if (type === 'resolved') {
       markets = getResolvedMarkets.all();
     } else {
       markets = getAllMarkets.all();
     }
-    
+
     // Attach bet counts
     const marketIds = markets.map(m => m.id);
     const betCounts = getBetCounts(marketIds);
     markets = markets.map(m => ({ ...m, bet_count: betCounts[m.id] || 0 }));
-    
+
     res.json(markets);
   } catch (err) {
     res.status(500).json({ error: 'Failed to fetch markets' });
+  }
+});
+
+// --- Market Edit Endpoint ---
+app.patch('/api/markets/:id', requireAuth, (req, res) => {
+  try {
+    const marketId = parseInt(req.params.id);
+    const { title, description } = req.body;
+
+    const market = getMarketById.get(marketId);
+    if (!market) return res.status(404).json({ error: 'Market not found' });
+    if (market.resolved) return res.status(400).json({ error: 'Cannot edit a resolved market' });
+
+    // Only creator or admin can edit
+    if (market.creator_id !== req.user.user_id && req.user.role !== 'admin') {
+      return res.status(403).json({ error: 'Only the creator or an admin can edit this market' });
+    }
+
+    if (!title || title.trim().length === 0) return res.status(400).json({ error: 'Title is required' });
+    if (title.trim().length > 200) return res.status(400).json({ error: 'Title must be 200 characters or less' });
+
+    updateMarket.run(title.trim(), (description || '').trim(), marketId);
+    const updated = getMarketById.get(marketId);
+    res.json(updated);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to update market' });
+  }
+});
+
+// --- Market Delete Endpoint ---
+app.delete('/api/markets/:id', requireAuth, (req, res) => {
+  try {
+    const marketId = parseInt(req.params.id);
+
+    const market = getMarketById.get(marketId);
+    if (!market) return res.status(404).json({ error: 'Market not found' });
+    if (market.resolved) return res.status(400).json({ error: 'Cannot delete a resolved market' });
+
+    // Only creator or admin can delete
+    if (market.creator_id !== req.user.user_id && req.user.role !== 'admin') {
+      return res.status(403).json({ error: 'Only the creator or an admin can delete this market' });
+    }
+
+    deleteMarket.run(marketId);
+    res.json({ ok: true, title: market.title });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to delete market' });
   }
 });
 
@@ -405,6 +472,11 @@ app.post('/api/bet', requireAuth, (req, res) => {
     const market = getMarketById.get(market_id);
     if (!market) return res.status(404).json({ error: 'Market not found' });
     if (market.resolved) return res.status(400).json({ error: 'Market already resolved' });
+
+    // Prevent self-betting: creator cannot bet on their own market
+    if (market.creator_id === req.user.user_id) {
+      return res.status(400).json({ error: 'You cannot bet on your own market' });
+    }
 
     // Validate min/max stake
     if (betAmount < market.min_stake) return res.status(400).json({ error: `Minimum stake is ${market.min_stake}` });
@@ -486,7 +558,23 @@ app.post('/api/resolve', requireAuth, requireAdmin, (req, res) => {
 app.get('/api/history', requireAuth, (req, res) => {
   try {
     const bets = getUserBets.all(req.user.user_id);
-    res.json(bets);
+    // Calculate payout info for resolved bets
+    const betsWithPayout = bets.map(bet => {
+      if (bet.resolved === 1 && bet.resolution) {
+        const won = bet.side === bet.resolution;
+        const winningPool = bet.side === 'yes' ? bet.yes_pool : bet.no_pool;
+        const losingPool = bet.side === 'yes' ? bet.no_pool : bet.yes_pool;
+        let payout = 0;
+        let profit = 0;
+        if (won && winningPool > 0) {
+          payout = bet.amount + Math.floor((bet.amount / winningPool) * losingPool);
+          profit = payout - bet.amount;
+        }
+        return { ...bet, payout, profit, won };
+      }
+      return { ...bet, payout: 0, profit: 0, won: false };
+    });
+    res.json(betsWithPayout);
   } catch (err) {
     res.status(500).json({ error: 'Failed to fetch bet history' });
   }
