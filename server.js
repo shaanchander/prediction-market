@@ -76,6 +76,7 @@ db.exec(`
     max_stake INTEGER,
     resolved INTEGER NOT NULL DEFAULT 0,
     resolution TEXT CHECK(resolution IN ('yes', 'no', NULL)),
+    expires_at INTEGER,
     created_at INTEGER NOT NULL,
     FOREIGN KEY (creator_id) REFERENCES users(id)
   );
@@ -94,6 +95,8 @@ db.exec(`
 
 // --- Migration: add must_set_password column if it doesn't exist (for existing DBs) ---
 try { db.exec('ALTER TABLE users ADD COLUMN must_set_password INTEGER NOT NULL DEFAULT 0'); } catch {}
+// --- Migration: add expires_at column if it doesn't exist ---
+try { db.exec('ALTER TABLE markets ADD COLUMN expires_at INTEGER'); } catch {}
 
 // --- Create indexes for query performance ---
 db.exec('CREATE INDEX IF NOT EXISTS idx_bets_user_id ON bets(user_id)');
@@ -110,10 +113,10 @@ const deleteUser = db.prepare('DELETE FROM users WHERE id = ?');
 const countAdmins = db.prepare("SELECT COUNT(*) AS cnt FROM users WHERE role = 'admin'");
 
 const insertMarket = db.prepare(
-  'INSERT INTO markets (creator_id, title, description, min_stake, max_stake, created_at) VALUES (?, ?, ?, ?, ?, ?)'
+  'INSERT INTO markets (creator_id, title, description, min_stake, max_stake, expires_at, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)'
 );
 const updateMarket = db.prepare(
-  'UPDATE markets SET title = ?, description = ? WHERE id = ?'
+  'UPDATE markets SET title = ?, description = ?, expires_at = ? WHERE id = ?'
 );
 const deleteMarket = db.prepare('DELETE FROM markets WHERE id = ?');
 
@@ -121,7 +124,7 @@ const getActiveMarkets = db.prepare(`
   SELECT m.*, u.username AS creator_username 
   FROM markets m 
   JOIN users u ON m.creator_id = u.id 
-  WHERE m.resolved = 0
+  WHERE m.resolved = 0 AND (m.expires_at IS NULL OR m.expires_at > ?)
   ORDER BY m.created_at DESC
 `);
 const getResolvedMarkets = db.prepare(`
@@ -310,7 +313,7 @@ app.get('/api/me', requireAuth, (req, res) => {
 // --- Market Endpoints ---
 app.post('/api/markets', requireAuth, (req, res) => {
   try {
-    const { title, description, min_stake, max_stake } = req.body;
+    const { title, description, min_stake, max_stake, expires_at } = req.body;
     if (!title || title.trim().length === 0) return res.status(400).json({ error: 'Title is required' });
     if (title.trim().length > 200) return res.status(400).json({ error: 'Title must be 200 characters or less' });
     if (description && description.trim().length > 2000) return res.status(400).json({ error: 'Description must be 2000 characters or less' });
@@ -321,12 +324,22 @@ app.post('/api/markets', requireAuth, (req, res) => {
     if (minStake < 1) return res.status(400).json({ error: 'Min stake must be at least 1' });
     if (maxStake !== null && maxStake < minStake) return res.status(400).json({ error: 'Max stake must be >= min stake' });
 
+    // Parse expires_at — expected as ISO string from the client (local time)
+    let expiresAt = null;
+    if (expires_at) {
+      const expDate = new Date(expires_at);
+      if (isNaN(expDate.getTime())) return res.status(400).json({ error: 'Invalid expiry date' });
+      if (expDate.getTime() <= Date.now()) return res.status(400).json({ error: 'Expiry must be in the future' });
+      expiresAt = Math.floor(expDate.getTime() / 1000);
+    }
+
     const result = insertMarket.run(
       req.user.user_id,
       title.trim(),
       (description || '').trim(),
       minStake,
       maxStake,
+      expiresAt,
       Math.floor(Date.now() / 1000)
     );
 
@@ -360,7 +373,7 @@ app.get('/api/markets', (req, res) => {
       if (type === 'active') markets = markets.filter(m => m.resolved === 0);
       else if (type === 'resolved') markets = markets.filter(m => m.resolved === 1);
     } else if (type === 'active') {
-      markets = getActiveMarkets.all();
+      markets = getActiveMarkets.all(Math.floor(Date.now() / 1000));
     } else if (type === 'resolved') {
       markets = getResolvedMarkets.all();
     } else {
@@ -382,7 +395,7 @@ app.get('/api/markets', (req, res) => {
 app.patch('/api/markets/:id', requireAuth, (req, res) => {
   try {
     const marketId = parseInt(req.params.id);
-    const { title, description } = req.body;
+    const { title, description, expires_at } = req.body;
 
     const market = getMarketById.get(marketId);
     if (!market) return res.status(404).json({ error: 'Market not found' });
@@ -396,7 +409,20 @@ app.patch('/api/markets/:id', requireAuth, (req, res) => {
     if (!title || title.trim().length === 0) return res.status(400).json({ error: 'Title is required' });
     if (title.trim().length > 200) return res.status(400).json({ error: 'Title must be 200 characters or less' });
 
-    updateMarket.run(title.trim(), (description || '').trim(), marketId);
+    // Parse expires_at if provided
+    let expiresAt = market.expires_at; // keep existing value
+    if (expires_at !== undefined) {
+      if (expires_at) {
+        const expDate = new Date(expires_at);
+        if (isNaN(expDate.getTime())) return res.status(400).json({ error: 'Invalid expiry date' });
+        if (expDate.getTime() <= Date.now()) return res.status(400).json({ error: 'Expiry must be in the future' });
+        expiresAt = Math.floor(expDate.getTime() / 1000);
+      } else {
+        expiresAt = null; // clear expiry
+      }
+    }
+
+    updateMarket.run(title.trim(), (description || '').trim(), expiresAt, marketId);
     const updated = getMarketById.get(marketId);
     res.json(updated);
   } catch (err) {
@@ -472,6 +498,11 @@ app.post('/api/bet', requireAuth, (req, res) => {
     const market = getMarketById.get(market_id);
     if (!market) return res.status(404).json({ error: 'Market not found' });
     if (market.resolved) return res.status(400).json({ error: 'Market already resolved' });
+
+    // Check if market has expired
+    if (market.expires_at && Math.floor(Date.now() / 1000) >= market.expires_at) {
+      return res.status(400).json({ error: 'This market has expired and is no longer accepting bets' });
+    }
 
     // Prevent self-betting: creator cannot bet on their own market
     if (market.creator_id === req.user.user_id) {

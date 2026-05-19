@@ -842,6 +842,37 @@ header {
   border-bottom: 1px solid var(--border);
 }
 
+/* Expiry Badge */
+.expiry-badge {
+  display: inline-block;
+  padding: 0.15rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.7rem;
+  font-weight: 600;
+}
+.expiry-active {
+  background: rgba(253, 203, 110, 0.15);
+  color: var(--warning);
+  border: 1px solid rgba(253, 203, 110, 0.25);
+}
+.expiry-expired {
+  background: rgba(225, 112, 85, 0.15);
+  color: var(--no);
+  border: 1px solid rgba(225, 112, 85, 0.25);
+}
+
+/* Expired Notice */
+.expired-notice {
+  text-align: center;
+  padding: 0.6rem;
+  background: rgba(225, 112, 85, 0.08);
+  border: 1px dashed rgba(225, 112, 85, 0.3);
+  border-radius: 6px;
+  font-size: 0.82rem;
+  color: var(--no);
+  font-weight: 600;
+}
+
 /* Payout Info in Bet History */
 .payout-info {
   display: flex;

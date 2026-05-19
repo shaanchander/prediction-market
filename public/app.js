@@ -143,8 +143,9 @@ $('#market-form').addEventListener('submit', async (e) => {
   const description = $('#market-desc').value.trim();
   const min_stake = parseInt($('#market-min').value) || 1;
   const max_stake = $('#market-max').value ? parseInt($('#market-max').value) : null;
+  const expires_at = $('#market-expires').value || null;
   try {
-    await api('/api/markets', { method: 'POST', body: JSON.stringify({ title, description, min_stake, max_stake }) });
+    await api('/api/markets', { method: 'POST', body: JSON.stringify({ title, description, min_stake, max_stake, expires_at }) });
     flashMsg($('#market-msg'), 'Market created!', 'success');
     $('#market-form').reset();
     hide($('#create-market'));
@@ -242,15 +243,39 @@ window.toggleVoters = async function(marketId, button) {
   content.classList.add('expanded');
 };
 
+// --- Format expiry time for display ---
+function formatExpiry(expiresAt) {
+  if (!expiresAt) return null;
+  const date = new Date(expiresAt * 1000);
+  const now = Date.now();
+  const diff = expiresAt * 1000 - now;
+  
+  // Check if expired
+  const isExpired = diff <= 0;
+  
+  if (isExpired) return { text: 'Expired', expired: true };
+  
+  // Time remaining
+  const hours = Math.floor(diff / (1000 * 60 * 60));
+  if (hours >= 24) {
+    const days = Math.floor(hours / 24);
+    return { text: `Expires in ${days}d ${hours % 24}h`, expired: false };
+  }
+  if (hours > 0) return { text: `Expires in ${hours}h`, expired: false };
+  const minutes = Math.floor(diff / (1000 * 60));
+  return { text: `Expires in ${minutes}m`, expired: false };
+}
+
 // --- Market Actions (edit/delete) ---
 function renderMarketActions(m) {
   const isCreator = currentUser && m.creator_username === currentUser.username;
   const isAdmin = currentUser && currentUser.role === 'admin';
   if (!isCreator && !isAdmin) return '';
   if (m.resolved === 1) return '';
+  const expiresAtStr = m.expires_at ? new Date(m.expires_at * 1000).toISOString().slice(0, 16) : '';
   return `
     <div class="market-actions">
-      <button class="btn btn-sm btn-outline action-btn" onclick="editMarket(${m.id}, '${esc(m.title.replace(/'/g, "\\'"))}', '${esc(m.description.replace(/'/g, "\\'"))}')">Edit</button>
+      <button class="btn btn-sm btn-outline action-btn" onclick="editMarket(${m.id}, '${esc(m.title.replace(/'/g, "\\'"))}', '${esc(m.description.replace(/'/g, "\\'"))}', '${expiresAtStr}')">Edit</button>
       <button class="btn btn-sm btn-outline action-btn btn-danger-outline" onclick="deleteMarket(${m.id}, '${esc(m.title.replace(/'/g, "\\'"))}')">Delete</button>
     </div>`;
 }
@@ -273,12 +298,18 @@ function renderMarkets(markets, emptyIcon = '📊', emptyText = 'No active marke
 
   container.innerHTML = markets.map((m) => {
     const resolved = m.resolved === 1;
+    const expiryInfo = formatExpiry(m.expires_at);
+    const isExpired = expiryInfo && expiryInfo.expired;
+
     const badge = resolved
       ? `<span class="resolved-badge resolved-${m.resolution}">Resolved: ${m.resolution.toUpperCase()}</span>`
       : '';
+    const expiryBadge = expiryInfo
+      ? `<span class="expiry-badge ${isExpired ? 'expiry-expired' : 'expiry-active'}">${expiryInfo.text}</span>`
+      : '';
 
-    const betSection = resolved
-      ? ''
+    const betSection = resolved || isExpired
+      ? (isExpired ? '<div class="expired-notice">⏱ Betting is closed — market has expired</div>' : '')
       : `
         <div class="bet-row">
           <input type="number" id="bet-amount-${m.id}" min="${m.min_stake}" placeholder="Amount" />
@@ -310,6 +341,7 @@ function renderMarkets(markets, emptyIcon = '📊', emptyText = 'No active marke
           <span class="market-title">${esc(m.title)}</span>
           <div class="market-header-right">
             ${betCountBadge}
+            ${expiryBadge}
             ${badge}
           </div>
         </div>
@@ -411,19 +443,23 @@ function renderBetHistory(bets) {
 }
 
 // --- Edit Market ---
-window.editMarket = async function (marketId, title, description) {
+window.editMarket = async function (marketId, title, description, expiresAt) {
   const newTitle = prompt('Edit market title:', title);
   if (newTitle === null) return;
   const newDesc = prompt('Edit description:', description);
   if (newDesc === null) return;
+  // For expiry, show current value formatted for datetime-local input
+  const currentExpiry = expiresAt ? new Date(expiresAt).toISOString().slice(0, 16) : '';
+  const newExpiry = prompt('Expiry (ISO format, or leave blank to keep current):', currentExpiry);
+  if (newExpiry === null) return;
   try {
-    await api(`/api/markets/${marketId}`, { method: 'PATCH', body: JSON.stringify({ title: newTitle, description: newDesc }) });
+    await api(`/api/markets/${marketId}`, { method: 'PATCH', body: JSON.stringify({ title: newTitle, description: newDesc, expires_at: newExpiry || null }) });
     loadMarkets();
     showToast('Market updated', 'success');
   } catch (err) {
     showToast(err.message);
   }
-};
+}
 
 // --- Delete Market ---
 window.deleteMarket = async function (marketId, title) {
@@ -674,6 +710,7 @@ function renderMarketsLegacy(markets, emptyText = 'No resolved markets yet') {
           <span class="market-title">${esc(m.title)}</span>
           <div class="market-header-right">
             ${betCountBadge}
+            ${expiryBadge}
             ${badge}
           </div>
         </div>
