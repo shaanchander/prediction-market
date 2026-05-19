@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="theme-color" content="#0f1117" />
+  <title>Prediction Markets</title>
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <header>
+    <div class="header-inner">
+      <h1>🎯 Prediction Markets</h1>
+      <nav id="nav-bar" class="nav-bar hidden">
+        <button class="nav-link active" data-page="markets">Markets</button>
+        <button class="nav-link" data-page="legacy">History</button>
+        <button class="nav-link" data-page="leaderboard">Leaderboard</button>
+        <button class="nav-link" data-page="history">My Bets</button>
+        <button class="nav-link admin-only" data-page="admin">Admin</button>
+      </nav>
+      <div id="user-bar" class="user-bar hidden">
+        <span id="user-tokens" class="token-badge"></span>
+        <span id="user-name"></span>
+        <button id="logout-btn" class="btn btn-sm btn-outline">Logout</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="container">
+    <!-- Auth Panel -->
+    <section id="auth-panel" class="auth-panel">
+      <form id="login-form" class="auth-form">
+        <div class="auth-icon">🎯</div>
+        <h2>Welcome Back</h2>
+        <div class="form-group">
+          <label for="login-username">Username</label>
+          <input type="text" id="login-username" autocomplete="username" required placeholder="Enter your username" />
+        </div>
+        <div class="form-group">
+          <label for="login-password">Password</label>
+          <input type="password" id="login-password" autocomplete="current-password" placeholder="Leave blank on first login" />
+        </div>
+        <button type="submit" class="btn btn-primary btn-full">Login</button>
+        <div class="form-msg" id="login-msg"></div>
+        <p class="auth-hint">First time? Enter a username and click Login — you'll set your password next.</p>
+      </form>
+
+      <form id="set-password-form" class="auth-form hidden">
+        <div class="auth-icon">👋</div>
+        <h2>Welcome!</h2>
+        <p class="set-password-welcome">Create a password for your account to get started.</p>
+        <div class="form-group">
+          <label for="set-password">Password</label>
+          <input type="password" id="set-password" autocomplete="new-password" minlength="1" required placeholder="Enter your password" />
+        </div>
+        <div class="form-group">
+          <label for="set-password-confirm">Confirm Password</label>
+          <input type="password" id="set-password-confirm" autocomplete="new-password" minlength="1" required placeholder="Re-enter your password" />
+        </div>
+        <button type="submit" class="btn btn-primary btn-full">Set Password</button>
+        <button type="button" id="back-to-login-btn" class="btn btn-outline btn-full">Back to Login</button>
+        <div class="form-msg" id="set-password-msg"></div>
+      </form>
+    </section>
+
+    <!-- Create Market Toggle Button -->
+    <button id="new-market-btn" class="btn btn-primary hidden" style="align-self:flex-start;">+ New Market</button>
+
+    <!-- Create Market -->
+    <section id="create-market" class="card hidden">
+      <div class="card-header">
+        <h2>Create Market</h2>
+        <button type="button" class="btn-close" id="close-create-market">✕</button>
+      </div>
+      <form id="market-form">
+        <div class="form-group">
+          <label for="market-title">What will happen?</label>
+          <input type="text" id="market-title" required placeholder="Will Bitcoin hit $150k by year end?" />
+        </div>
+        <div class="form-group">
+          <label for="market-desc">Description (optional)</label>
+          <textarea id="market-desc" rows="2" placeholder="Add context or clarify the outcome..."></textarea>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label for="market-min">Min Stake</label>
+            <input type="number" id="market-min" value="1" min="1" />
+          </div>
+          <div class="form-group">
+            <label for="market-max">Max Stake</label>
+            <input type="number" id="market-max" min="1" placeholder="No limit" />
+          </div>
+        </div>
+        <button type="submit" class="btn btn-primary btn-full">Create Market</button>
+        <div class="form-msg" id="market-msg"></div>
+      </form>
+    </section>
+
+    <!-- Admin Panel -->
+    <section id="admin-panel" class="page hidden">
+      <div class="card">
+        <h2>Admin</h2>
+        <div id="admin-stats" class="admin-stats"></div>
+        <div class="admin-actions">
+          <button id="topup-btn" class="btn btn-warning">Top Up All Users (+50 tokens)</button>
+        </div>
+        <div class="form-msg" id="admin-msg"></div>
+
+      <h3 class="admin-section-title">Create User</h3>
+      <p class="admin-hint">The user will set their own password on first login.</p>
+      <form id="create-user-form">
+        <div class="form-row">
+          <div class="form-group">
+            <label for="new-username">Username</label>
+            <input type="text" id="new-username" required minlength="3" placeholder="Username" />
+          </div>
+          <div class="form-group">
+            <label for="new-role">Role</label>
+            <select id="new-role">
+              <option value="user">User</option>
+              <option value="admin">Admin</option>
+            </select>
+          </div>
+        </div>
+        <button type="submit" class="btn btn-primary">Create User</button>
+        <div class="form-msg" id="create-user-msg"></div>
+      </form>
+
+      <h3 class="admin-section-title">Users</h3>
+      <table id="users-table" class="data-table">
+        <thead>
+          <tr><th>ID</th><th>Username</th><th>Role</th><th>Tokens</th><th>Status</th><th>Actions</th></tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+      </div>
+    </section>
+
+    <!-- Markets List (Active) -->
+    <section id="markets-section" class="page hidden">
+      <h2>Active Markets</h2>
+      <div id="markets-list" class="markets-list"></div>
+    </section>
+
+    <!-- Legacy Markets -->
+    <section id="legacy-section" class="page hidden">
+      <h2>Market History</h2>
+      <p class="page-hint">Previously resolved markets.</p>
+      <div id="legacy-list" class="markets-list"></div>
+    </section>
+
+    <!-- Leaderboard -->
+    <section id="leaderboard-section" class="page hidden">
+      <h2>🏆 Leaderboard</h2>
+      <div id="leaderboard-list" class="leaderboard-list"></div>
+    </section>
+
+    <!-- Bet History -->
+    <section id="history-section" class="page hidden">
+      <h2>My Bets</h2>
+      <div id="history-list" class="history-list"></div>
+    </section>
+  </main>
+
+  <script src="/app.js"></script>
+</body>
+</html>

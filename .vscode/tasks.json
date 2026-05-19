@@ -1,0 +1,24 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "Install Dependencies",
+			"type": "shell",
+			"command": "npm",
+			"args": [
+				"install"
+			],
+			"group": "build"
+		},
+		{
+			"label": "Install & Start",
+			"type": "shell",
+			"command": "bash",
+			"args": [
+				"-c",
+				"cd \"/Users/shaanchander/Desktop/Personal Coding Projects/prediction-market\" && npm install && npm start"
+			],
+			"isBackground": true
+		}
+	]
+}
