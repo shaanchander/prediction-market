@@ -363,7 +363,7 @@ function getBetCounts(marketIds) {
   return counts;
 }
 
-app.get('/api/markets', (req, res) => {
+app.get('/api/markets', requireAuth, (req, res) => {
   try {
     const type = req.query.type || 'all';
     const search = req.query.search || '';
@@ -455,7 +455,7 @@ app.delete('/api/markets/:id', requireAuth, (req, res) => {
 });
 
 // --- Market Bets Endpoint ---
-app.get('/api/markets/:id/bets', (req, res) => {
+app.get('/api/markets/:id/bets', requireAuth, (req, res) => {
   try {
     const marketId = parseInt(req.params.id);
     const market = getMarketById.get(marketId);
@@ -476,7 +476,7 @@ app.get('/api/markets/:id/bets', (req, res) => {
 });
 
 // --- Leaderboard Endpoint ---
-app.get('/api/leaderboard', (_req, res) => {
+app.get('/api/leaderboard', requireAuth, (_req, res) => {
   try {
     const rows = db.prepare('SELECT id, username, tokens FROM users ORDER BY tokens DESC').all();
     res.json(rows);
