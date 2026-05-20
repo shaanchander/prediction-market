@@ -331,8 +331,12 @@ $$('.preset-btn').forEach(btn => {
       const hours = parseInt(btn.dataset.hours);
       const d = new Date(Date.now() + hours * 60 * 60 * 1000);
       // Format as datetime-local value (YYYY-MM-DDTHH:MM) in local time
-      const iso = d.toISOString().slice(0, 16);
-      input.value = iso;
+      const y = d.getFullYear();
+      const mo = String(d.getMonth() + 1).padStart(2, '0');
+      const da = String(d.getDate()).padStart(2, '0');
+      const h = String(d.getHours()).padStart(2, '0');
+      const mi = String(d.getMinutes()).padStart(2, '0');
+      input.value = `${y}-${mo}-${da}T${h}:${mi}`;
     }
   });
 });
