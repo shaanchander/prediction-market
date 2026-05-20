@@ -702,6 +702,11 @@ function renderMarketsLegacy(markets, emptyText = 'No resolved markets yet') {
 
   container.innerHTML = markets.map((m) => {
     const badge = `<span class="resolved-badge resolved-${m.resolution}">Resolved: ${m.resolution.toUpperCase()}</span>`;
+    const expiryInfo = formatExpiry(m.expires_at);
+    const isExpired = expiryInfo && expiryInfo.expired;
+    const expiryBadge = expiryInfo
+      ? `<span class="expiry-badge ${isExpired ? 'expiry-expired' : 'expiry-active'}">${expiryInfo.text}</span>`
+      : '';
     const betCountBadge = m.bet_count > 0 ? `<span class="bet-count-badge">${m.bet_count} bet${m.bet_count !== 1 ? 's' : ''}</span>` : '';
     const timeAgoLabel = m.created_at ? timeAgo(m.created_at) : '';
     return `

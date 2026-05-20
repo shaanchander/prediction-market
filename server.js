@@ -16,17 +16,20 @@ const JWT_EXPIRY = process.env.JWT_EXPIRY || '7d';
 
 // --- Middleware ---
 app.use(helmet({
+  hsts: false, // Disable HSTS — local server has no HTTPS support
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
       scriptSrc: ["'self'"],
       scriptSrcAttr: ["'unsafe-inline'"],
       styleSrc: ["'self'", "'unsafe-inline'"],
-      connectSrc: ["'self'"]
+      connectSrc: ["'self'"],
+      upgradeInsecureRequests: null // null explicitly disables the directive in Helmet 8
     }
   }
 }));
-app.use(cors({ origin: process.env.CORS_ORIGIN || 'http://localhost:3000' }));
+// Allow all origins for local network access
+app.use(cors());
 app.use(bodyParser.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
