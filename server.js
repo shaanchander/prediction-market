@@ -535,10 +535,14 @@ app.post('/api/bet', requireAuth, (req, res) => {
 
     // Atomic bet placement — use a transaction to prevent race conditions
     const placeBetTx = db.transaction(() => {
-      // Re-read user tokens inside the transaction to prevent double-spending
+      // Re-read user tokens inside the transaction to prevent race conditions
       const currentUser = getUserById.get(req.user.user_id);
       if (!currentUser) throw new Error('User not found');
       if (currentUser.tokens < betAmount) throw new Error('Insufficient tokens');
+
+      // 20% cap — checked inside transaction to prevent race condition bypass
+      const maxBet = Math.floor(currentUser.tokens * 0.2);
+      if (betAmount > maxBet) throw new Error(`Maximum bet is ${maxBet} tokens (20% of balance)`);
 
       // Deduct tokens
       updateUserTokens.run(currentUser.tokens - betAmount, currentUser.id);

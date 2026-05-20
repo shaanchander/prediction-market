@@ -88,6 +88,7 @@ $('#login-form').addEventListener('submit', async (e) => {
       token = data.token;
       currentUser = data.user;
       localStorage.setItem('pm_token', token);
+      $('#login-form').reset();
       onAuth();
     }
   } catch (err) {
@@ -407,9 +408,7 @@ function renderMarkets(markets, emptyIcon = '📊', emptyText = 'No active marke
         </div>
         <div class="voters-section">
           <button class="voters-toggle" onclick="toggleVoters(${m.id}, this)">👥 See voters</button>
-          <div class="voters-content" id="voters-${m.id}">
-            <div class="voters-loading">Loading...</div>
-          </div>
+          <div class="voters-content" id="voters-${m.id}"></div>
         </div>
         ${renderMarketActions(m)}
         ${betSection}
@@ -781,9 +780,7 @@ function renderMarketsLegacy(markets, emptyText = 'No resolved markets yet') {
         </div>
         <div class="voters-section">
           <button class="voters-toggle" onclick="toggleVoters(${m.id}, this)">👥 See voters</button>
-          <div class="voters-content" id="voters-${m.id}">
-            <div class="voters-loading">Loading...</div>
-          </div>
+          <div class="voters-content" id="voters-${m.id}"></div>
         </div>
         ${renderMarketActions(m)}
       </div>`;
