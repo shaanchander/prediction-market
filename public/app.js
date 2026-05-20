@@ -4,6 +4,90 @@ let currentUser = null;
 let currentPage = 'markets';
 let pendingUsername = null; // username waiting to set password
 
+// --- Live Polling ---
+let pollingInterval = null;
+const POLL_INTERVAL_MS = 10000; // 10 seconds
+
+function startPolling() {
+  stopPolling();
+  pollingInterval = setInterval(pollUpdates, POLL_INTERVAL_MS);
+}
+
+function stopPolling() {
+  if (pollingInterval) {
+    clearInterval(pollingInterval);
+    pollingInterval = null;
+  }
+}
+
+async function pollUpdates() {
+  if (!token || !currentUser) return;
+
+  // Update token balance
+  try {
+    const user = await api('/api/me');
+    if (user.tokens !== currentUser.tokens) {
+      currentUser.tokens = user.tokens;
+      updateUserBar();
+    }
+  } catch {}
+
+  // Update market pools if on markets page
+  if (currentPage === 'markets') {
+    try {
+      const search = $('#market-search')?.value.trim() || '';
+      const params = new URLSearchParams({ type: 'active' });
+      if (search) params.set('search', search);
+      const markets = await api(`/api/markets?${params}`);
+      updateMarketsInPlace(markets);
+    } catch {}
+  }
+}
+
+// Update market cards without full re-render (preserves expanded voter panels)
+function updateMarketsInPlace(markets) {
+  const marketMap = {};
+  markets.forEach(m => { marketMap[m.id] = m; });
+
+  // Update each market card that exists in the DOM
+  markets.forEach(m => {
+    const card = document.querySelector(`.market-card[data-market-id="${m.id}"]`);
+    if (!card) return;
+
+    // Update probability bar
+    const yesPct = poolPercent(m.yes_pool, m.no_pool, 'yes');
+    const noPct = poolPercent(m.yes_pool, m.no_pool, 'no');
+    const barYes = card.querySelector('.probability-bar-yes');
+    if (barYes) barYes.style.width = yesPct + '%';
+
+    const probYes = card.querySelector('.prob-yes');
+    if (probYes) probYes.textContent = `Yes ${yesPct}%`;
+    const probNo = card.querySelector('.prob-no');
+    if (probNo) probNo.textContent = `No ${noPct}%`;
+
+    // Update pool amounts
+    const poolYes = card.querySelector('.pool-yes .pool-amount');
+    if (poolYes) poolYes.textContent = m.yes_pool;
+    const poolNo = card.querySelector('.pool-no .pool-amount');
+    if (poolNo) poolNo.textContent = m.no_pool;
+
+    // Update bet count badge
+    const badge = card.querySelector('.bet-count-badge');
+    if (badge) {
+      badge.textContent = m.bet_count + (m.bet_count !== 1 ? ' bets' : ' bet');
+    }
+  });
+
+  // Check if markets were added or removed — full re-render if count mismatch
+  const existingCards = document.querySelectorAll('.market-card[data-market-id]');
+  if (existingCards.length !== markets.length) {
+    loadMarkets();
+  }
+}
+
+// Add data-market-id to market cards (called during initial render)
+// This is handled in renderMarkets below.
+
 // --- Toast Notification System ---
 function showToast(message, type = 'error') {
   const toast = document.createElement('div');
@@ -528,7 +612,7 @@ function renderMarkets(markets, emptyIcon = '📊', emptyText = 'No active marke
     const timeAgoLabel = m.created_at ? timeAgo(m.created_at) : '';
 
     return `
-      <div class="market-card">
+      <div class="market-card" data-market-id="${m.id}">
         <div class="market-header">
           <span class="market-title">${esc(m.title)}</span>
           <div class="market-header-right">
@@ -580,6 +664,71 @@ function esc(str) {
   return d.innerHTML;
 }
 
+// --- Render User Stats ---
+function renderUserStats(bets) {
+  const container = $('#user-stats');
+  if (!bets.length) {
+    container.innerHTML = '';
+    return;
+  }
+
+  const totalBets = bets.length;
+  const openBets = bets.filter(b => b.resolved !== 1).length;
+  const resolvedBets = bets.filter(b => b.resolved === 1);
+  const wins = resolvedBets.filter(b => b.won).length;
+  const losses = resolvedBets.length - wins;
+  const winRate = resolvedBets.length > 0 ? Math.round((wins / resolvedBets.length) * 100) : 0;
+
+  // Calculate total profit/loss
+  let totalStaked = 0;
+  let totalReturned = 0;
+  let biggestWin = 0;
+  let biggestLoss = 0;
+
+  bets.forEach(b => {
+    totalStaked += b.amount;
+    if (b.resolved === 1) {
+      if (b.won) {
+        totalReturned += b.payout;
+        biggestWin = Math.max(biggestWin, b.profit);
+      } else {
+        biggestLoss = Math.max(biggestLoss, b.amount);
+      }
+    }
+  });
+
+  const netProfit = totalReturned - totalStaked;
+  const profitClass = netProfit >= 0 ? 'stats-positive' : 'stats-negative';
+
+  container.innerHTML = `
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-card-value">${totalBets}</div>
+        <div class="stat-card-label">Total Bets</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-card-value">${openBets}</div>
+        <div class="stat-card-label">Open</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-card-value">${wins}W / ${losses}L</div>
+        <div class="stat-card-label">Record (${winRate}%)</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-card-value ${profitClass}">${netProfit >= 0 ? '+' : ''}${netProfit}</div>
+        <div class="stat-card-label">Net Profit/Loss</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-card-value stats-positive">+${biggestWin}</div>
+        <div class="stat-card-label">Biggest Win</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-card-value stats-negative">-${biggestLoss}</div>
+        <div class="stat-card-label">Biggest Loss</div>
+      </div>
+    </div>`;
+}
+
 // --- Render Bet History ---
 function renderBetHistory(bets) {
   const container = $('#history-list');
@@ -589,8 +738,11 @@ function renderBetHistory(bets) {
         <div class="empty-state-icon">🎲</div>
         <div class="empty-state-text">No bets yet. Place one on the Markets page!</div>
       </div>`;
+    renderUserStats([]);
     return;
   }
+
+  renderUserStats(bets);
 
   container.innerHTML = bets.map((b) => {
     const sideClass = b.side === 'yes' ? 'pool-yes' : 'pool-no';
@@ -1100,6 +1252,7 @@ function navigateTo(page) {
     hide($('#new-market-btn'));
     loadBetHistory();
   } else if (page === 'admin') {
+    stopPolling();
     show($('#admin-panel'));
     hide($('#create-market'));
     hide($('#new-market-btn'));
@@ -1141,9 +1294,11 @@ function onAuth() {
   });
 
   navigateTo('markets');
+  startPolling();
 }
 
 function onLogout() {
+  stopPolling();
   show($('#auth-panel'));
   show($('#login-form'));
   hide($('#set-password-form'));
