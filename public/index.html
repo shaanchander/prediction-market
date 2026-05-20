@@ -101,7 +101,19 @@
         </div>
         <div class="form-group">
           <label for="market-expires">Expiry (optional — bets close at this time)</label>
-          <input type="datetime-local" id="market-expires" />
+          <div class="expiry-row">
+            <div class="datetime-picker-wrap">
+              <input type="datetime-local" id="market-expires" class="datetime-picker" />
+            </div>
+            <div class="expiry-presets">
+              <button type="button" class="preset-btn" data-hours="1">1h</button>
+              <button type="button" class="preset-btn" data-hours="6">6h</button>
+              <button type="button" class="preset-btn" data-hours="24">24h</button>
+              <button type="button" class="preset-btn" data-hours="72">3d</button>
+              <button type="button" class="preset-btn" data-hours="168">7d</button>
+              <button type="button" class="preset-btn preset-clear">Clear</button>
+            </div>
+          </div>
         </div>
         <button type="submit" class="btn btn-primary btn-full">Create Market</button>
         <div class="form-msg" id="market-msg"></div>

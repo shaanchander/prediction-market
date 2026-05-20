@@ -610,11 +610,6 @@ app.post('/api/bet', requireAuth, (req, res) => {
       return res.status(400).json({ error: 'This market has expired and is no longer accepting bets' });
     }
 
-    // Prevent self-betting: creator cannot bet on their own market
-    if (market.creator_id === req.user.user_id) {
-      return res.status(400).json({ error: 'You cannot bet on your own market' });
-    }
-
     // Validate min/max stake
     if (betAmount < market.min_stake) return res.status(400).json({ error: `Minimum stake is ${market.min_stake}` });
     if (market.max_stake !== null && betAmount > market.max_stake) {

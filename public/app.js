@@ -321,6 +321,22 @@ function poolPercent(yesPool, noPool, side) {
   return Math.round((pct / total) * 100);
 }
 
+// --- Expiry Preset Buttons ---
+$$('.preset-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const input = $('#market-expires');
+    if (btn.classList.contains('preset-clear')) {
+      input.value = '';
+    } else {
+      const hours = parseInt(btn.dataset.hours);
+      const d = new Date(Date.now() + hours * 60 * 60 * 1000);
+      // Format as datetime-local value (YYYY-MM-DDTHH:MM) in local time
+      const iso = d.toISOString().slice(0, 16);
+      input.value = iso;
+    }
+  });
+});
+
 // --- Toggle Create Market ---
 $('#new-market-btn').addEventListener('click', () => {
   hide($('#new-market-btn'));
