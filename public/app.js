@@ -488,24 +488,25 @@ window.toggleVoters = async function(marketId, button) {
 // --- Format expiry time for display ---
 function formatExpiry(expiresAt) {
   if (!expiresAt) return null;
-  const date = new Date(expiresAt * 1000);
   const now = Date.now();
   const diff = expiresAt * 1000 - now;
-  
+
   // Check if expired
   const isExpired = diff <= 0;
-  
-  if (isExpired) return { text: 'Expired', expired: true };
-  
+  if (isExpired) return { text: 'Expired', expired: true, urgent: false };
+
+  // Check if urgent (< 1 hour)
+  const urgent = diff < 60 * 60 * 1000;
+
   // Time remaining
   const hours = Math.floor(diff / (1000 * 60 * 60));
   if (hours >= 24) {
     const days = Math.floor(hours / 24);
-    return { text: `Expires in ${days}d ${hours % 24}h`, expired: false };
+    return { text: `Expires in ${days}d ${hours % 24}h`, expired: false, urgent: false };
   }
-  if (hours > 0) return { text: `Expires in ${hours}h`, expired: false };
+  if (hours > 0) return { text: `Expires in ${hours}h`, expired: false, urgent: urgent };
   const minutes = Math.floor(diff / (1000 * 60));
-  return { text: `Expires in ${minutes}m`, expired: false };
+  return { text: `Expires in ${minutes}m`, expired: false, urgent: true };
 }
 
 // --- Market Actions (edit/delete) ---
@@ -586,8 +587,9 @@ function renderMarkets(markets, emptyIcon = '📊', emptyText = 'No active marke
     const badge = resolved
       ? `<span class="resolved-badge resolved-${m.resolution}">Resolved: ${m.resolution.toUpperCase()}</span>`
       : '';
+    const expiryClass = isExpired ? 'expiry-expired' : (expiryInfo?.urgent ? 'expiry-urgent' : 'expiry-active');
     const expiryBadge = expiryInfo
-      ? `<span class="expiry-badge ${isExpired ? 'expiry-expired' : 'expiry-active'}">${expiryInfo.text}</span>`
+      ? `<span class="expiry-badge ${expiryClass}">${expiryInfo.text}</span>`
       : '';
 
     const betSection = resolved || isExpired
@@ -655,14 +657,27 @@ function renderMarkets(markets, emptyIcon = '📊', emptyText = 'No active marke
           </div>
         </div>
         <div class="voters-section">
-          <button class="voters-toggle" onclick="toggleVoters(${m.id}, this)">👥 See voters</button>
+          <button class="voters-toggle" onclick="toggleVoters(${m.id}, this)">👥 See voters${m.bet_count > 0 ? ` (${m.bet_count})` : ''}</button>
           <div class="voters-content" id="voters-${m.id}"></div>
         </div>
+        ${renderUserPosition(m.id)}
         ${renderMarketActions(m)}
         ${betSection}
         ${resolveSection}
       </div>`;
   }).join('');
+}
+
+// Show user's current position on a market
+function renderUserPosition(marketId) {
+  const bet = userBetsMap[marketId];
+  if (!bet) return '';
+  // Determine dominant side for coloring
+  const sideClass = bet.yes >= bet.no ? 'yes' : 'no';
+  const parts = [];
+  if (bet.yes > 0) parts.push(`${bet.yes} tokens on YES`);
+  if (bet.no > 0) parts.push(`${bet.no} tokens on NO`);
+  return `<div class="user-position user-position-${sideClass}">You bet ${parts.join(', ')}</div>`;
 }
 
 function esc(str) {
@@ -843,13 +858,34 @@ window.placeBet = async function (marketId, side) {
 
 // --- Bet Bottom Sheet (mobile) ---
 let currentBetMarketId = null;
+let userBetsMap = {}; // market_id → { side, amount }
+
+// Build a map of current user's open bets for display on market cards
+async function loadUserBetsMap() {
+  try {
+    const bets = await api('/api/history');
+    userBetsMap = {};
+    bets.forEach(b => {
+      if (b.resolved !== 1) {
+        if (!userBetsMap[b.market_id]) {
+          userBetsMap[b.market_id] = { yes: 0, no: 0 };
+        }
+        const side = b.side.toUpperCase();
+        userBetsMap[b.market_id][side.toLowerCase()] += b.amount;
+      }
+    });
+  } catch {}
+}
 
 window.openBetSheet = function (marketId, minStake, maxStake, title) {
   currentBetMarketId = marketId;
   $('#bet-sheet-title').textContent = title || 'Place Bet';
   $('#bet-sheet-amount').min = minStake;
   $('#bet-sheet-amount').value = '';
-  const hint = 'Min ' + minStake + (maxStake ? ' / Max ' + maxStake : '');
+  const maxBet = Math.floor(currentUser.tokens * 0.2);
+  let hint = 'Min ' + minStake;
+  if (maxStake) hint += ' / Max ' + maxStake;
+  hint += ' · Max bet: ' + maxBet + ' (20% of balance)';
   $('#bet-sheet-hint').textContent = hint;
   const overlay = $('#bet-sheet-overlay');
   overlay.classList.remove('hidden');
@@ -938,6 +974,7 @@ async function loadMarkets() {
     if (sort === 'oldest') markets.sort((a, b) => a.created_at - b.created_at);
     else if (sort === 'popular') markets.sort((a, b) => (b.bet_count || 0) - (a.bet_count || 0));
 
+    await loadUserBetsMap();
     renderMarkets(markets, '📊', search ? 'No markets match your search' : 'No active markets yet');
   } catch (err) {
     if (!isNetworkError(err)) renderMarkets([]);
@@ -1298,8 +1335,9 @@ function renderMarketsLegacy(markets, emptyText = 'No resolved markets yet') {
     const badge = `<span class="resolved-badge resolved-${m.resolution}">Resolved: ${m.resolution.toUpperCase()}</span>`;
     const expiryInfo = formatExpiry(m.expires_at);
     const isExpired = expiryInfo && expiryInfo.expired;
+    const expiryClass = isExpired ? 'expiry-expired' : (expiryInfo?.urgent ? 'expiry-urgent' : 'expiry-active');
     const expiryBadge = expiryInfo
-      ? `<span class="expiry-badge ${isExpired ? 'expiry-expired' : 'expiry-active'}">${expiryInfo.text}</span>`
+      ? `<span class="expiry-badge ${expiryClass}">${expiryInfo.text}</span>`
       : '';
     const betCountBadge = m.bet_count > 0 ? `<span class="bet-count-badge">${m.bet_count} bet${m.bet_count !== 1 ? 's' : ''}</span>` : '';
     const timeAgoLabel = m.created_at ? timeAgo(m.created_at) : '';

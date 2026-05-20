@@ -547,7 +547,7 @@ header {
 .pools {
   display: flex;
   gap: 0.75rem;
-  margin-bottom: 0.75rem;
+  margin-bottom: 1rem;
 }
 .pool {
   flex: 1;
@@ -571,6 +571,7 @@ header {
   gap: 0.5rem;
   align-items: center;
   flex-wrap: wrap;
+  margin-bottom: 0.5rem;
 }
 .bet-row input {
   width: 100px;
@@ -583,7 +584,13 @@ header {
   outline: none;
 }
 .bet-row input:focus { border-color: var(--primary); }
-.bet-hint { font-size: 0.7rem; color: var(--text-dim); }
+.bet-hint {
+  display: block;
+  width: 100%;
+  font-size: 0.7rem;
+  color: var(--text-dim);
+  margin-bottom: 0.5rem;
+}
 
 /* Bet Sheet Trigger — hidden on desktop */
 .bet-sheet-trigger { display: none; }
@@ -718,7 +725,8 @@ header {
 
 /* Voters Section */
 .voters-section {
-  margin-top: 0.5rem;
+  margin-top: 0.75rem;
+  margin-bottom: 0.75rem;
 }
 .voters-toggle {
   background: transparent;
@@ -1082,8 +1090,42 @@ header {
   color: var(--warning);
   border: 1px solid rgba(253, 203, 110, 0.25);
 }
+.expiry-urgent {
+  background: rgba(225, 112, 85, 0.2);
+  color: var(--no);
+  border: 1px solid rgba(225, 112, 85, 0.4);
+  animation: urgent-pulse 1.5s ease-in-out infinite;
+}
+@keyframes urgent-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
 .expiry-expired {
   background: rgba(225, 112, 85, 0.15);
+  color: var(--no);
+  border: 1px solid rgba(225, 112, 85, 0.25);
+}
+
+/* User Position Indicator */
+.user-position {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: 6px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  margin-top: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+.user-position-yes {
+  background: rgba(0, 184, 148, 0.1);
+  color: var(--yes);
+  border: 1px solid rgba(0, 184, 148, 0.25);
+}
+.user-position-no {
+  background: rgba(225, 112, 85, 0.1);
   color: var(--no);
   border: 1px solid rgba(225, 112, 85, 0.25);
 }
