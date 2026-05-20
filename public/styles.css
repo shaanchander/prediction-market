@@ -231,6 +231,22 @@ header {
 }
 .datetime-picker:focus { border-color: var(--primary); }
 
+/* Hint overlay — shows when input is empty, hidden when filled */
+.datetime-hint {
+  position: absolute;
+  top: 50%;
+  left: 0.75rem;
+  transform: translateY(-50%);
+  color: var(--text-dim);
+  font-size: 0.85rem;
+  pointer-events: none;
+  transition: opacity 0.15s;
+  display: none; /* Only shown on mobile via media query */
+}
+.datetime-hint.hidden {
+  opacity: 0;
+}
+
 /* Webkit calendar icon button */
 .datetime-picker::-webkit-calendar-picker-indicator {
   cursor: pointer;
@@ -1173,9 +1189,17 @@ header {
     padding: 0.55rem 0.75rem !important;
     overflow: hidden;
     text-overflow: ellipsis;
+    min-height: 44px;
   }
   .datetime-picker::-webkit-calendar-picker-indicator {
     display: none !important;
+  }
+  /* Show hint overlay only on mobile (native picker has calendar icon on desktop) */
+  .datetime-hint {
+    display: block;
+  }
+  .datetime-hint.hidden {
+    display: none;
   }
 
   /* Markets toolbar stacks on mobile */

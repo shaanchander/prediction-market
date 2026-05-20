@@ -338,7 +338,16 @@ $$('.preset-btn').forEach(btn => {
       const mi = String(d.getMinutes()).padStart(2, '0');
       input.value = `${y}-${mo}-${da}T${h}:${mi}`;
     }
+    // Toggle hint visibility
+    const hint = document.querySelector('.datetime-hint');
+    if (hint) hint.classList.toggle('hidden', !!input.value);
   });
+});
+
+// Watch for manual changes to the datetime picker
+$('#market-expires')?.addEventListener('input', () => {
+  const hint = document.querySelector('.datetime-hint');
+  if (hint) hint.classList.toggle('hidden', !!$('#market-expires').value);
 });
 
 // --- Toggle Create Market ---
