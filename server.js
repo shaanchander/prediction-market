@@ -28,9 +28,13 @@ app.use(helmet({
     }
   }
 }));
-// Allow all origins for local network access
-app.use(cors());
-app.use(bodyParser.json());
+// Restrict CORS — set CORS_ORIGINS env var for production (comma-separated origins)
+const corsOrigins = process.env.CORS_ORIGINS
+  ? process.env.CORS_ORIGINS.split(',').map(s => s.trim())
+  : ['http://localhost:3000'];
+app.use(cors({ origin: corsOrigins, credentials: true }));
+// Limit request body size to 10KB to prevent DoS
+app.use(bodyParser.json({ limit: '10kb' }));
 app.use(express.static(path.join(__dirname, 'public')));
 
 // --- Rate Limiting ---
@@ -216,7 +220,9 @@ ensureDefaultAdmin();
 
 // --- Input Validation ---
 function validatePassword(password) {
-  if (!password || password.length < 1) return 'Password is required';
+  if (!password || password.length < 8) return 'Password must be at least 8 characters';
+  if (password.length > 128) return 'Password must be 128 characters or less';
+  if (!/[A-Za-z]/.test(password) || !/\d/.test(password)) return 'Password must contain both letters and numbers';
   return null;
 }
 
@@ -235,13 +241,13 @@ function requireAuth(req, res, next) {
 
   const token = authHeader.slice(7);
   try {
-    const decoded = jwt.verify(token, JWT_SECRET);
+    const decoded = jwt.verify(token, JWT_SECRET, { algorithms: ['HS256'] });
     const user = getUserById.get(decoded.userId);
-    if (!user) return res.status(401).json({ error: 'User no longer exists' });
+    if (!user) return res.status(401).json({ error: 'Authentication required' });
     req.user = { user_id: user.id, username: user.username, role: user.role, tokens: user.tokens };
     next();
   } catch (err) {
-    return res.status(401).json({ error: 'Invalid or expired token' });
+    return res.status(401).json({ error: 'Authentication required' });
   }
 }
 
@@ -257,6 +263,7 @@ app.post('/api/login', authLimiter, (req, res) => {
 
     const user = getUserByUsername.get(username);
     if (!user) {
+      // Use generic error to avoid username enumeration
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
@@ -268,10 +275,11 @@ app.post('/api/login', authLimiter, (req, res) => {
     if (!password) return res.status(400).json({ error: 'Password required' });
 
     if (!bcrypt.compareSync(password, user.password_hash)) {
+      // Use generic error to avoid user enumeration
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
-    const token = jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: JWT_EXPIRY });
+    const token = jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: JWT_EXPIRY, algorithm: 'HS256' });
 
     res.json({ token, user: { id: user.id, username: user.username, role: user.role, tokens: user.tokens } });
   } catch (err) {
@@ -295,7 +303,7 @@ app.post('/api/set-password', authLimiter, (req, res) => {
     updateUserPassword.run(hash, user.id);
 
     const updatedUser = getUserById.get(user.id);
-    const token = jwt.sign({ userId: updatedUser.id }, JWT_SECRET, { expiresIn: JWT_EXPIRY });
+    const token = jwt.sign({ userId: updatedUser.id }, JWT_SECRET, { expiresIn: JWT_EXPIRY, algorithm: 'HS256' });
 
     res.json({ token, user: { id: updatedUser.id, username: updatedUser.username, role: updatedUser.role, tokens: updatedUser.tokens } });
   } catch (err) {
@@ -525,18 +533,28 @@ app.post('/api/bet', requireAuth, (req, res) => {
     // Sufficient balance
     if (betAmount > user.tokens) return res.status(400).json({ error: 'Insufficient tokens' });
 
-    // Deduct tokens
-    updateUserTokens.run(user.tokens - betAmount, user.id);
+    // Atomic bet placement — use a transaction to prevent race conditions
+    const placeBetTx = db.transaction(() => {
+      // Re-read user tokens inside the transaction to prevent double-spending
+      const currentUser = getUserById.get(req.user.user_id);
+      if (!currentUser) throw new Error('User not found');
+      if (currentUser.tokens < betAmount) throw new Error('Insufficient tokens');
 
-    // Add to pool
-    const yesAdd = side === 'yes' ? betAmount : 0;
-    const noAdd = side === 'no' ? betAmount : 0;
-    updateMarketPools.run(yesAdd, noAdd, market_id);
+      // Deduct tokens
+      updateUserTokens.run(currentUser.tokens - betAmount, currentUser.id);
 
-    // Record bet
-    insertBet.run(user.id, market_id, side, betAmount, Math.floor(Date.now() / 1000));
+      // Add to pool
+      const yesAdd = side === 'yes' ? betAmount : 0;
+      const noAdd = side === 'no' ? betAmount : 0;
+      updateMarketPools.run(yesAdd, noAdd, market_id);
 
-    const updatedUser = getUserById.get(user.id);
+      // Record bet
+      insertBet.run(currentUser.id, market_id, side, betAmount, Math.floor(Date.now() / 1000));
+    });
+
+    placeBetTx();
+
+    const updatedUser = getUserById.get(req.user.user_id);
     const updatedMarket = getMarketById.get(market_id);
 
     res.json({
@@ -566,14 +584,17 @@ app.post('/api/resolve', requireAuth, requireAdmin, (req, res) => {
 
     const winningBets = getBetsByMarketAndSide.all(market_id, resolution);
 
-    // Calculate payouts
+    // Calculate payouts — use a transaction to prevent race conditions
     const payoutStmt = db.transaction((bets) => {
       for (const bet of bets) {
         if (winningPool > 0) {
           const share = Math.floor((bet.amount / winningPool) * losingPool);
           const payout = bet.amount + share;
+          // Re-read user inside transaction for accurate balance
           const user = getUserById.get(bet.user_id);
-          updateUserTokens.run(user.tokens + payout, bet.user_id);
+          if (user) {
+            updateUserTokens.run(user.tokens + payout, bet.user_id);
+          }
         }
       }
       resolveMarket.run(resolution, market_id);
@@ -711,6 +732,10 @@ app.delete('/admin/users/:id', requireAuth, requireAdmin, (req, res) => {
       if (cnt <= 1) return res.status(400).json({ error: 'Cannot delete the last admin' });
     }
 
+    // Delete markets created by this user (unresolved only — resolved markets are history)
+    const deleteMarketsByUser = db.prepare('DELETE FROM markets WHERE creator_id = ? AND resolved = 0');
+    deleteMarketsByUser.run(userId);
+
     const username = user.username;
     deleteUser.run(userId);
     res.json({ ok: true, username });
@@ -774,5 +799,5 @@ process.on('unhandledRejection', (reason) => {
 // --- Start Server ---
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`Prediction Market running at http://0.0.0.0:${PORT}`);
-  console.log('Admin: username=admin (see server.js for password)');
+  console.log('Admin: username=admin (password from ADMIN_PASSWORD env var)');
 });

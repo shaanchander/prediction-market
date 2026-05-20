@@ -273,12 +273,46 @@ function renderMarketActions(m) {
   if (!isCreator && !isAdmin) return '';
   if (m.resolved === 1) return '';
   const expiresAtStr = m.expires_at ? new Date(m.expires_at * 1000).toISOString().slice(0, 16) : '';
+  // Use data attributes instead of onclick to avoid XSS via inline handlers
   return `
     <div class="market-actions">
-      <button class="btn btn-sm btn-outline action-btn" onclick="editMarket(${m.id}, '${esc(m.title.replace(/'/g, "\\'"))}', '${esc(m.description.replace(/'/g, "\\'"))}', '${expiresAtStr}')">Edit</button>
-      <button class="btn btn-sm btn-outline action-btn btn-danger-outline" onclick="deleteMarket(${m.id}, '${esc(m.title.replace(/'/g, "\\'"))}')">Delete</button>
+      <button class="btn btn-sm btn-outline action-btn edit-market-btn" data-market-id="${m.id}" data-market-title="${esc(m.title)}" data-market-desc="${esc(m.description)}" data-market-expires="${esc(expiresAtStr)}">Edit</button>
+      <button class="btn btn-sm btn-outline action-btn btn-danger-outline delete-market-btn" data-market-id="${m.id}" data-market-title="${esc(m.title)}">Delete</button>
     </div>`;
 }
+
+// --- Event delegation for market action buttons ---
+document.addEventListener('click', (e) => {
+  if (e.target.classList.contains('edit-market-btn')) {
+    const marketId = parseInt(e.target.dataset.marketId);
+    const title = e.target.dataset.marketTitle;
+    const description = e.target.dataset.marketDesc;
+    const expiresAt = e.target.dataset.marketExpires;
+    editMarket(marketId, title, description, expiresAt);
+  }
+  if (e.target.classList.contains('delete-market-btn')) {
+    const marketId = parseInt(e.target.dataset.marketId);
+    const title = e.target.dataset.marketTitle;
+    deleteMarket(marketId, title);
+  }
+  // Admin user table buttons
+  if (e.target.classList.contains('admin-reset-pw-btn')) {
+    const userId = parseInt(e.target.dataset.userId);
+    const username = e.target.dataset.userName;
+    resetPassword(userId, username);
+  }
+  if (e.target.classList.contains('admin-change-role-btn')) {
+    const userId = parseInt(e.target.dataset.userId);
+    const newRole = e.target.dataset.newRole;
+    const roleLabel = e.target.dataset.roleLabel;
+    changeRole(userId, newRole, roleLabel);
+  }
+  if (e.target.classList.contains('admin-delete-user-btn')) {
+    const userId = parseInt(e.target.dataset.userId);
+    const username = e.target.dataset.userName;
+    deleteUser(userId, username);
+  }
+});
 
 // --- Render Markets ---
 function renderMarkets(markets, emptyIcon = '📊', emptyText = 'No active markets yet') {
@@ -590,9 +624,9 @@ async function loadAdminUsers() {
         <td data-label="Tokens">${u.tokens}</td>
         <td data-label="Status">${statusBadge}</td>
         <td class="actions-cell" data-label="Actions">
-          <button class="btn btn-sm btn-outline action-btn" onclick="resetPassword(${u.id}, '${esc(u.username)}')" title="Reset password">Reset PW</button>
-          <button class="btn btn-sm btn-outline action-btn" onclick="changeRole(${u.id}, '${newRole}', '${roleLabel}')" title="${roleLabel}">${roleLabel}</button>
-          <button class="btn btn-sm btn-outline action-btn btn-danger-outline" onclick="deleteUser(${u.id}, '${esc(u.username)}')" title="Delete user">Delete</button>
+          <button class="btn btn-sm btn-outline action-btn admin-reset-pw-btn" data-user-id="${u.id}" data-user-name="${esc(u.username)}" title="Reset password">Reset PW</button>
+          <button class="btn btn-sm btn-outline action-btn admin-change-role-btn" data-user-id="${u.id}" data-new-role="${newRole}" data-role-label="${esc(roleLabel)}" title="${esc(roleLabel)}">${roleLabel}</button>
+          <button class="btn btn-sm btn-outline action-btn btn-danger-outline admin-delete-user-btn" data-user-id="${u.id}" data-user-name="${esc(u.username)}" title="Delete user">Delete</button>
         </td>
       </tr>`;
     }).join('');
@@ -797,7 +831,17 @@ function updateUserBar() {
   if (!currentUser) return;
   $('#user-tokens').textContent = `🪙 ${currentUser.tokens}`;
   const adminBadge = currentUser.role === 'admin' ? ' <span style="color:var(--warning);font-size:0.7rem;">(Admin)</span>' : '';
-  $('#user-name').innerHTML = `${currentUser.username}${adminBadge}`;
+  $('#user-name').textContent = currentUser.username;
+  // Append admin badge as a separate element to avoid innerHTML
+  const existingBadge = $('#user-name .admin-badge');
+  if (existingBadge) existingBadge.remove();
+  if (currentUser.role === 'admin') {
+    const badge = document.createElement('span');
+    badge.className = 'admin-badge';
+    badge.style.cssText = 'color:var(--warning);font-size:0.7rem;';
+    badge.textContent = ' (Admin)';
+    $('#user-name').appendChild(badge);
+  }
 }
 
 function onAuth() {
