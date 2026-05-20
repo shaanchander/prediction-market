@@ -1114,6 +1114,86 @@ header {
   .nav-link { padding: 0.35rem 0.65rem; font-size: 0.8rem; }
 }
 
+/* Admin Bets Management */
+.admin-hint-row {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+  align-items: center;
+}
+#admin-market-select {
+  flex: 1;
+  padding: 0.45rem 0.75rem;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+  font-size: 0.85rem;
+  outline: none;
+}
+#admin-market-select:focus {
+  border-color: var(--primary);
+}
+
+.admin-bets-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.75rem;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.admin-bets-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.admin-bet-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.6rem 0.75rem;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 0.82rem;
+}
+
+.admin-bet-user {
+  flex: 1;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.admin-bet-side {
+  padding: 0.15rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+.admin-bet-side.yes {
+  background: rgba(0, 184, 148, 0.15);
+  color: var(--yes);
+}
+.admin-bet-side.no {
+  background: rgba(225, 112, 85, 0.15);
+  color: var(--no);
+}
+
+.admin-bet-amount {
+  color: var(--text-dim);
+  font-weight: 600;
+}
+
+.admin-bet-refund-btn {
+  padding: 0.25rem 0.6rem;
+  font-size: 0.75rem;
+}
+
 /* Modal Overlay */
 .modal-overlay {
   position: fixed;

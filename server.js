@@ -249,6 +249,21 @@ const getBetsForMarket = db.prepare(`
   ORDER BY b.created_at DESC
 `);
 
+// Admin: get bets with user_id for refund
+const getBetsForMarketWithUserId = db.prepare(`
+  SELECT b.id AS bet_id, b.user_id, b.amount, b.side, b.created_at, u.username
+  FROM bets b
+  JOIN users u ON b.user_id = u.id
+  WHERE b.market_id = ?
+  ORDER BY b.created_at DESC
+`);
+
+// Admin: refund a single bet
+const deleteBet = db.prepare('DELETE FROM bets WHERE id = ?');
+const updateMarketPoolDown = db.prepare(
+  'UPDATE markets SET yes_pool = yes_pool - ?, no_pool = no_pool - ? WHERE id = ?'
+);
+
 const getBetCountForMarket = db.prepare(
   'SELECT COUNT(*) AS cnt FROM bets WHERE market_id = ?'
 );
@@ -852,6 +867,83 @@ app.get('/admin/backup', requireAuth, requireAdmin, (_req, res) => {
     res.json({ backups: listBackups() });
   } catch (err) {
     res.status(500).json({ error: 'Failed to list backups' });
+  }
+});
+
+// --- Admin: Get bets for a market (with user_id for refund) ---
+app.get('/admin/markets/:id/bets', requireAuth, requireAdmin, (req, res) => {
+  try {
+    const marketId = parseInt(req.params.id);
+    const market = getMarketById.get(marketId);
+    if (!market) return res.status(404).json({ error: 'Market not found' });
+    if (market.resolved) return res.status(400).json({ error: 'Cannot refund bets on a resolved market' });
+
+    const bets = getBetsForMarketWithUserId.all(marketId);
+    res.json({ bets, market_title: market.title });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch bets' });
+  }
+});
+
+// --- Admin: Refund a single bet ---
+app.post('/admin/bets/:id/refund', requireAuth, requireAdmin, (req, res) => {
+  try {
+    const betId = parseInt(req.params.id);
+    const bet = db.prepare('SELECT * FROM bets WHERE id = ?').get(betId);
+    if (!bet) return res.status(404).json({ error: 'Bet not found' });
+
+    const market = getMarketById.get(bet.market_id);
+    if (!market) return res.status(404).json({ error: 'Market not found' });
+    if (market.resolved) return res.status(400).json({ error: 'Cannot refund bets on a resolved market' });
+
+    // Refund tokens to user
+    const user = getUserById.get(bet.user_id);
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    updateUserTokens.run(user.tokens + bet.amount, bet.user_id);
+
+    // Remove bet from pool
+    if (bet.side === 'yes') {
+      updateMarketPoolDown.run(bet.amount, 0, bet.market_id);
+    } else {
+      updateMarketPoolDown.run(0, bet.amount, bet.market_id);
+    }
+
+    // Delete the bet
+    deleteBet.run(betId);
+
+    res.json({ ok: true, refunded: bet.amount, username: user.username });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to refund bet' });
+  }
+});
+
+// --- Admin: Refund all bets on a market and delete the market ---
+app.post('/admin/markets/:id/refund-and-delete', requireAuth, requireAdmin, (req, res) => {
+  try {
+    const marketId = parseInt(req.params.id);
+    const market = getMarketById.get(marketId);
+    if (!market) return res.status(404).json({ error: 'Market not found' });
+    if (market.resolved) return res.status(400).json({ error: 'Cannot refund bets on a resolved market' });
+
+    // Get all bets
+    const bets = getBetsForMarketWithUserId.all(marketId);
+    let refundedCount = 0;
+
+    // Refund each bet
+    for (const bet of bets) {
+      const user = getUserById.get(bet.user_id);
+      if (user) {
+        updateUserTokens.run(user.tokens + bet.amount, bet.user_id);
+        refundedCount++;
+      }
+    }
+
+    // Delete the market (CASCADE will delete all bets)
+    deleteMarket.run(marketId);
+
+    res.json({ ok: true, refunded_count: refundedCount, title: market.title });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to refund and delete market' });
   }
 });
 

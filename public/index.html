@@ -142,6 +142,22 @@
         <div class="form-msg" id="create-user-msg"></div>
       </form>
 
+      <h3 class="admin-section-title">Manage Market Bets</h3>
+      <p class="admin-hint">Select a market to view and refund individual bets.</p>
+      <div class="admin-hint-row">
+        <select id="admin-market-select">
+          <option value="">— Select market —</option>
+        </select>
+        <button id="admin-load-bets-btn" class="btn btn-sm btn-outline">Load Bets</button>
+      </div>
+      <div id="admin-bets-container" class="hidden">
+        <div class="admin-bets-header">
+          <span id="admin-bets-market-title" class="admin-section-title" style="margin:0;"></span>
+          <button id="admin-refund-delete-btn" class="btn btn-sm btn-danger-outline">Refund All & Delete Market</button>
+        </div>
+        <div id="admin-bets-list" class="admin-bets-list"></div>
+      </div>
+
       <h3 class="admin-section-title">Users</h3>
       <table id="users-table" class="data-table">
         <thead>

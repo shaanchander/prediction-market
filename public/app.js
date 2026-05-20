@@ -864,6 +864,90 @@ async function loadBackupStatus() {
   }
 }
 
+// --- Admin: Load market list for bets management ---
+async function loadAdminMarketSelect() {
+  try {
+    const markets = await api('/api/markets?type=active');
+    const select = $('#admin-market-select');
+    select.innerHTML = '<option value="">— Select market —</option>';
+    markets.forEach(m => {
+      const opt = document.createElement('option');
+      opt.value = m.id;
+      opt.textContent = `${esc(m.title)} (${m.bet_count || 0} bets)`;
+      select.appendChild(opt);
+    });
+  } catch (err) {
+    console.error('Failed to load markets for admin:', err);
+  }
+}
+
+// --- Admin: Load bets for selected market ---
+$('#admin-load-bets-btn').addEventListener('click', async () => {
+  const marketId = $('#admin-market-select').value;
+  if (!marketId) return showToast('Select a market first');
+  try {
+    const data = await api(`/admin/markets/${marketId}/bets`);
+    $('#admin-bets-market-title').textContent = data.market_title;
+    renderAdminBets(data.bets, marketId);
+    show($('#admin-bets-container'));
+  } catch (err) {
+    showToast(err.message);
+  }
+});
+
+function renderAdminBets(bets, marketId) {
+  const container = $('#admin-bets-list');
+  if (!bets.length) {
+    container.innerHTML = '<div class="voter-empty">No bets on this market</div>';
+    return;
+  }
+  container.innerHTML = bets.map(b => `
+    <div class="admin-bet-row">
+      <span class="admin-bet-user">${esc(b.username)}</span>
+      <span class="admin-bet-side ${b.side}">${b.side.toUpperCase()}</span>
+      <span class="admin-bet-amount">${b.amount} tokens</span>
+      <button class="btn btn-sm btn-outline admin-bet-refund-btn" onclick="adminRefundBet(${b.bet_id}, '${esc(b.username)}', ${b.amount})">Refund</button>
+    </div>`).join('');
+}
+
+window.adminRefundBet = async function (betId, username, amount) {
+  const confirmed = await showConfirmModal('Refund Bet', `Refund ${amount} tokens to ${esc(username)}?`);
+  if (!confirmed) return;
+  try {
+    await api(`/admin/bets/${betId}/refund`, { method: 'POST' });
+    showToast(`Refunded ${amount} tokens to ${esc(username)}`, 'success');
+    // Reload bets
+    const marketId = $('#admin-market-select').value;
+    if (marketId) {
+      const data = await api(`/admin/markets/${marketId}/bets`);
+      renderAdminBets(data.bets, marketId);
+    }
+    loadAdminStats();
+  } catch (err) {
+    showToast(err.message);
+  }
+};
+
+// --- Admin: Refund all bets and delete market ---
+$('#admin-refund-delete-btn').addEventListener('click', async () => {
+  const marketId = $('#admin-market-select').value;
+  if (!marketId) return showToast('Select a market first');
+  const select = $('#admin-market-select');
+  const marketTitle = select.options[select.selectedIndex].text;
+  const confirmed = await showConfirmModal('Refund All & Delete', `This will refund all bets on "${esc(marketTitle)}" and permanently delete the market.`);
+  if (!confirmed) return;
+  try {
+    await api(`/admin/markets/${marketId}/refund-and-delete`, { method: 'POST' });
+    showToast('Market deleted and all bets refunded', 'success');
+    hide($('#admin-bets-container'));
+    loadAdminMarketSelect();
+    loadAdminStats();
+    loadMarkets();
+  } catch (err) {
+    showToast(err.message);
+  }
+});
+
 // --- Render Leaderboard ---
 function renderLeaderboard(users) {
   const container = $('#leaderboard-list');
@@ -993,6 +1077,7 @@ function navigateTo(page) {
     loadAdminUsers();
     loadAdminStats();
     loadBackupStatus();
+    loadAdminMarketSelect();
   }
 }
 
