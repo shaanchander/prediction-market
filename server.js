@@ -912,6 +912,66 @@ app.post('/admin/bets/:id/refund', requireAuth, requireAdmin, (req, res) => {
   }
 });
 
+// --- User Profile Endpoint ---
+app.get('/api/users/:username', requireAuth, (req, res) => {
+  try {
+    const user = getUserByUsername.get(req.params.username);
+    if (!user) return res.status(404).json({ error: 'User not found' });
+
+    // Get user's bets with market info
+    const bets = getUserBets.all(user.id);
+    const totalBets = bets.length;
+    const openBets = bets.filter(b => b.resolved !== 1).length;
+    const resolvedBets = bets.filter(b => b.resolved === 1);
+
+    // Calculate wins/losses
+    let wins = 0;
+    let totalStaked = 0;
+    let totalReturned = 0;
+    let biggestWin = 0;
+    let biggestLoss = 0;
+
+    bets.forEach(b => {
+      totalStaked += b.amount;
+      if (b.resolved === 1) {
+        const won = b.side === b.resolution;
+        if (won) {
+          wins++;
+          const winningPool = b.side === 'yes' ? b.yes_pool : b.no_pool;
+          const losingPool = b.side === 'yes' ? b.no_pool : b.yes_pool;
+          const payout = b.amount + Math.floor((b.amount / winningPool) * losingPool);
+          totalReturned += payout;
+          biggestWin = Math.max(biggestWin, payout - b.amount);
+        } else {
+          biggestLoss = Math.max(biggestLoss, b.amount);
+        }
+      }
+    });
+
+    const losses = resolvedBets.length - wins;
+    const winRate = resolvedBets.length > 0 ? Math.round((wins / resolvedBets.length) * 100) : 0;
+    const netProfit = totalReturned - totalStaked;
+
+    res.json({
+      id: user.id,
+      username: user.username,
+      role: user.role,
+      tokens: user.tokens,
+      totalBets,
+      openBets,
+      wins,
+      losses,
+      winRate,
+      netProfit,
+      biggestWin,
+      biggestLoss,
+      joinedAt: db.prepare('SELECT created_at FROM markets WHERE creator_id = ? ORDER BY created_at ASC LIMIT 1').get(user.id)?.created_at ?? null
+    });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch user profile' });
+  }
+});
+
 // --- Admin: Refund all bets on a market and delete the market ---
 app.post('/admin/markets/:id/refund-and-delete', requireAuth, requireAdmin, (req, res) => {
   try {

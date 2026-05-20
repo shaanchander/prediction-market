@@ -1427,3 +1427,109 @@ header {
     grid-template-columns: repeat(2, 1fr);
   }
 }
+
+/* --- Clickable Usernames --- */
+.clickable-username {
+  cursor: pointer;
+  color: var(--primary);
+  text-decoration: underline;
+  text-decoration-color: transparent;
+  transition: text-decoration-color 0.15s;
+}
+.clickable-username:hover {
+  text-decoration-color: var(--primary);
+}
+
+/* --- Voter Row Hover --- */
+.voter-row {
+  transition: background 0.15s;
+}
+.voter-row:hover {
+  background: var(--bg-elevated);
+}
+
+/* --- Profile Modal --- */
+.profile-modal-box {
+  max-width: 420px;
+  width: 90%;
+}
+
+.profile-header {
+  text-align: center;
+  margin-bottom: 1.25rem;
+  position: relative;
+}
+
+.profile-header .btn-close {
+  position: absolute;
+  top: -0.5rem;
+  right: -0.5rem;
+}
+
+.profile-avatar {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: var(--primary);
+  color: #fff;
+  font-size: 1.5rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 0.5rem;
+}
+
+.profile-header h3 {
+  margin: 0 0 0.25rem;
+  font-size: 1.2rem;
+}
+
+.profile-role {
+  font-size: 0.8rem;
+  color: var(--text-dim);
+}
+
+.profile-role-admin {
+  color: var(--warning) !important;
+}
+
+.profile-stats {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.5rem;
+}
+
+.profile-stat {
+  background: var(--surface-hover);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.6rem 0.5rem;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.profile-stat-value {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #fff;
+}
+
+.profile-stat-label {
+  font-size: 0.65rem;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+@media (max-width: 640px) {
+  .profile-modal-box {
+    width: 95%;
+    max-width: 360px;
+  }
+  .profile-stats {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}

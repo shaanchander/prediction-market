@@ -252,7 +252,7 @@ function renderVoterList(voters) {
   return voters.map(v => `
     <div class="voter-row">
       <span class="voter-avatar">${esc(v.username[0].toUpperCase())}</span>
-      <span class="voter-name">${esc(v.username)}</span>
+      <span class="voter-name clickable-username" data-username="${esc(v.username)}">${esc(v.username)}</span>
       <span class="voter-amount">${v.amount}</span>
       <span class="voter-time">${timeAgo(v.created_at)}</span>
     </div>`).join('');
@@ -537,6 +537,12 @@ document.addEventListener('click', (e) => {
     const title = e.target.dataset.marketTitle;
     deleteMarket(marketId, title);
   }
+  // Clickable usernames
+  if (e.target.classList.contains('clickable-username')) {
+    const username = e.target.dataset.username;
+    showUserProfile(username);
+    return;
+  }
   // Admin user table buttons
   if (e.target.classList.contains('admin-reset-pw-btn')) {
     const userId = parseInt(e.target.dataset.userId);
@@ -625,7 +631,7 @@ function renderMarkets(markets, emptyIcon = '📊', emptyText = 'No active marke
         <div class="market-meta">
           <span class="creator-icon">${esc(m.creator_username[0].toUpperCase())}</span>
           <span class="creator-label">Created by</span>
-          <span class="creator-name">${esc(m.creator_username)}</span>
+          <span class="creator-name clickable-username" data-username="${esc(m.creator_username)}">${esc(m.creator_username)}</span>
           <span class="market-meta-spacer"></span>
           <span class="market-time">${timeAgoLabel}</span>
         </div>
@@ -1109,6 +1115,58 @@ window.adminRefundBet = async function (betId, username, amount) {
   }
 };
 
+// --- User Profile Modal ---
+window.showUserProfile = async function(username) {
+  try {
+    const data = await api(`/api/users/${encodeURIComponent(username)}`);
+    $('#profile-avatar').textContent = data.username[0].toUpperCase();
+    $('#profile-username').textContent = data.username;
+    
+    const roleEl = $('#profile-role');
+    if (data.role === 'admin') {
+      roleEl.textContent = 'Admin';
+      roleEl.className = 'profile-role profile-role-admin';
+    } else {
+      roleEl.textContent = '';
+      roleEl.className = 'profile-role';
+    }
+
+    $('#profile-tokens').textContent = data.tokens.toLocaleString();
+    $('#profile-total-bets').textContent = data.totalBets;
+    $('#profile-open-bets').textContent = data.openBets;
+    $('#profile-record').textContent = `${data.wins}W / ${data.losses}L (${data.winRate}%)`;
+    
+    const profitEl = $('#profile-profit');
+    profitEl.textContent = (data.netProfit >= 0 ? '+' : '') + data.netProfit;
+    profitEl.className = data.netProfit >= 0 ? 'profile-stat-value stats-positive' : 'profile-stat-value stats-negative';
+    
+    $('#profile-biggest-win').textContent = '+' + data.biggestWin;
+    $('#profile-biggest-win').className = 'profile-stat-value stats-positive';
+    $('#profile-biggest-loss').textContent = '-' + data.biggestLoss;
+    $('#profile-biggest-loss').className = 'profile-stat-value stats-negative';
+    
+    const joinedEl = $('#profile-joined');
+    if (data.joinedAt) {
+      joinedEl.textContent = new Date(data.joinedAt * 1000).toLocaleDateString();
+    } else {
+      joinedEl.textContent = '—';
+    }
+
+    show($('#profile-modal'));
+  } catch (err) {
+    showToast(err.message);
+  }
+};
+
+$('#profile-modal-close').addEventListener('click', () => {
+  hide($('#profile-modal'));
+});
+
+// Close profile modal on overlay click
+$('#profile-modal')?.addEventListener('click', (e) => {
+  if (e.target === $('#profile-modal')) hide($('#profile-modal'));
+});
+
 // --- Admin: Refund all bets and delete market ---
 $('#admin-refund-delete-btn').addEventListener('click', async () => {
   const marketId = $('#admin-market-select').value;
@@ -1193,7 +1251,7 @@ function renderMarketsLegacy(markets, emptyText = 'No resolved markets yet') {
         <div class="market-meta">
           <span class="creator-icon">${esc(m.creator_username[0].toUpperCase())}</span>
           <span class="creator-label">Created by</span>
-          <span class="creator-name">${esc(m.creator_username)}</span>
+          <span class="creator-name clickable-username" data-username="${esc(m.creator_username)}">${esc(m.creator_username)}</span>
           <span class="market-meta-spacer"></span>
           <span class="market-time">${timeAgoLabel}</span>
         </div>
