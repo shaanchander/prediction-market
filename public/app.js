@@ -603,7 +603,8 @@ function renderMarkets(markets, emptyIcon = '📊', emptyText = 'No active marke
           <button class="btn btn-sm btn-yes" onclick="placeBet(${m.id}, 'yes')">Bet Yes</button>
           <button class="btn btn-sm btn-no" onclick="placeBet(${m.id}, 'no')">Bet No</button>
         </div>
-        <span class="bet-hint">Min ${m.min_stake}${m.max_stake ? ` / Max ${m.max_stake}` : ''}</span>`;
+        <span class="bet-hint">Min ${m.min_stake}${m.max_stake ? ` / Max ${m.max_stake}` : ''}</span>
+        <button class="btn btn-primary bet-sheet-trigger" onclick="openBetSheet(${m.id}, ${m.min_stake}, ${m.max_stake || 'null'}, '${esc(m.title)}')">Place Bet</button>`;
 
     const resolveSection = resolved
       ? ''
@@ -839,6 +840,71 @@ window.placeBet = async function (marketId, side) {
     showToast(err.message);
   }
 };
+
+// --- Bet Bottom Sheet (mobile) ---
+let currentBetMarketId = null;
+
+window.openBetSheet = function (marketId, minStake, maxStake, title) {
+  currentBetMarketId = marketId;
+  $('#bet-sheet-title').textContent = title || 'Place Bet';
+  $('#bet-sheet-amount').min = minStake;
+  $('#bet-sheet-amount').value = '';
+  const hint = 'Min ' + minStake + (maxStake ? ' / Max ' + maxStake : '');
+  $('#bet-sheet-hint').textContent = hint;
+  const overlay = $('#bet-sheet-overlay');
+  overlay.classList.remove('hidden');
+  requestAnimationFrame(() => {
+    overlay.classList.add('bet-sheet-open');
+  });
+};
+
+window.closeBetSheet = function () {
+  const overlay = $('#bet-sheet-overlay');
+  overlay.classList.remove('bet-sheet-open');
+  setTimeout(() => {
+    overlay.classList.add('hidden');
+    currentBetMarketId = null;
+  }, 250);
+};
+
+// Sheet bet buttons
+$('#bet-sheet-yes')?.addEventListener('click', async () => {
+  const amount = parseInt($('#bet-sheet-amount').value);
+  if (!amount || amount <= 0) return showToast('Enter a valid amount');
+  try {
+    const data = await api('/api/bet', { method: 'POST', body: JSON.stringify({ market_id: currentBetMarketId, side: 'yes', amount }) });
+    currentUser.tokens = data.user.tokens;
+    updateUserBar();
+    loadMarkets();
+    showToast(`Bet placed: ${amount} tokens on YES`, 'success');
+    closeBetSheet();
+  } catch (err) {
+    showToast(err.message);
+  }
+});
+
+$('#bet-sheet-no')?.addEventListener('click', async () => {
+  const amount = parseInt($('#bet-sheet-amount').value);
+  if (!amount || amount <= 0) return showToast('Enter a valid amount');
+  try {
+    const data = await api('/api/bet', { method: 'POST', body: JSON.stringify({ market_id: currentBetMarketId, side: 'no', amount }) });
+    currentUser.tokens = data.user.tokens;
+    updateUserBar();
+    loadMarkets();
+    showToast(`Bet placed: ${amount} tokens on NO`, 'success');
+    closeBetSheet();
+  } catch (err) {
+    showToast(err.message);
+  }
+});
+
+// Sheet close button
+$('#bet-sheet-close')?.addEventListener('click', closeBetSheet);
+
+// Close on overlay background tap
+$('#bet-sheet-overlay')?.addEventListener('click', (e) => {
+  if (e.target.id === 'bet-sheet-overlay') closeBetSheet();
+});
 
 // --- Resolve Market ---
 window.resolveMarket = async function (marketId, resolution) {

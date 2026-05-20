@@ -299,6 +299,30 @@
     </div>
   </div>
 
+  <!-- Bet Bottom Sheet (mobile) -->
+  <div id="bet-sheet-overlay" class="bet-sheet-overlay hidden">
+    <div class="bet-sheet">
+      <div class="bet-sheet-handle"></div>
+      <div class="bet-sheet-header">
+        <h3 id="bet-sheet-title">Place Bet</h3>
+        <button class="btn-close" id="bet-sheet-close">✕</button>
+      </div>
+      <div class="bet-sheet-body">
+        <input type="text" inputmode="numeric" pattern="[0-9]*" id="bet-sheet-amount" placeholder="Amount" autocomplete="off" />
+        <div class="quick-bet">
+          <button class="quick-bet-btn" onclick="document.getElementById('bet-sheet-amount').value=10">10</button>
+          <button class="quick-bet-btn" onclick="document.getElementById('bet-sheet-amount').value=50">50</button>
+          <button class="quick-bet-btn" onclick="document.getElementById('bet-sheet-amount').value=100">100</button>
+        </div>
+        <span class="bet-hint" id="bet-sheet-hint"></span>
+        <div class="bet-sheet-actions">
+          <button class="btn btn-yes" id="bet-sheet-yes">Bet Yes</button>
+          <button class="btn btn-no" id="bet-sheet-no">Bet No</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <script src="/app.js"></script>
 </body>
 </html>
