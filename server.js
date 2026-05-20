@@ -393,9 +393,11 @@ app.get('/api/me', requireAuth, (req, res) => {
 app.post('/api/markets', requireAuth, (req, res) => {
   try {
     const { title, description, min_stake, max_stake, expires_at } = req.body;
-    if (!title || title.trim().length === 0) return res.status(400).json({ error: 'Title is required' });
-    if (title.trim().length > 200) return res.status(400).json({ error: 'Title must be 200 characters or less' });
-    if (description && description.trim().length > 2000) return res.status(400).json({ error: 'Description must be 2000 characters or less' });
+    const cleanTitle = sanitizeHtml(title);
+    const cleanDesc = sanitizeHtml(description || '');
+    if (!cleanTitle || cleanTitle.trim().length === 0) return res.status(400).json({ error: 'Title is required' });
+    if (cleanTitle.trim().length > 200) return res.status(400).json({ error: 'Title must be 200 characters or less' });
+    if (cleanDesc.trim().length > 2000) return res.status(400).json({ error: 'Description must be 2000 characters or less' });
 
     const minStake = parseInt(min_stake) || 1;
     const maxStake = max_stake ? parseInt(max_stake) : null;
@@ -414,8 +416,8 @@ app.post('/api/markets', requireAuth, (req, res) => {
 
     const result = insertMarket.run(
       req.user.user_id,
-      title.trim(),
-      (description || '').trim(),
+      cleanTitle.trim(),
+      cleanDesc.trim(),
       minStake,
       maxStake,
       expiresAt,
@@ -471,6 +473,12 @@ app.get('/api/markets', requireAuth, (req, res) => {
   }
 });
 
+// --- Input Sanitization Helper ---
+function sanitizeHtml(str) {
+  if (typeof str !== 'string') return str;
+  return str.replace(/<[^>]*>/g, '');
+}
+
 // --- Market Edit Endpoint ---
 app.patch('/api/markets/:id', requireAuth, (req, res) => {
   try {
@@ -486,8 +494,11 @@ app.patch('/api/markets/:id', requireAuth, (req, res) => {
       return res.status(403).json({ error: 'Only the creator or an admin can edit this market' });
     }
 
-    if (!title || title.trim().length === 0) return res.status(400).json({ error: 'Title is required' });
-    if (title.trim().length > 200) return res.status(400).json({ error: 'Title must be 200 characters or less' });
+    const cleanTitle = sanitizeHtml(title);
+    if (!cleanTitle || cleanTitle.trim().length === 0) return res.status(400).json({ error: 'Title is required' });
+    if (cleanTitle.trim().length > 200) return res.status(400).json({ error: 'Title must be 200 characters or less' });
+    const cleanDesc = sanitizeHtml(description || '');
+    if (cleanDesc.trim().length > 2000) return res.status(400).json({ error: 'Description must be 2000 characters or less' });
 
     // Parse expires_at if provided
     let expiresAt = market.expires_at; // keep existing value
@@ -502,7 +513,7 @@ app.patch('/api/markets/:id', requireAuth, (req, res) => {
       }
     }
 
-    updateMarket.run(title.trim(), (description || '').trim(), expiresAt, marketId);
+    updateMarket.run(cleanTitle.trim(), cleanDesc.trim(), expiresAt, marketId);
     const updated = getMarketById.get(marketId);
     res.json(updated);
   } catch (err) {

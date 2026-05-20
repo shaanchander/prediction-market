@@ -193,6 +193,36 @@
     </section>
   </main>
 
+  <!-- Custom Confirmation Modal -->
+  <div id="confirm-modal" class="modal-overlay hidden">
+    <div class="modal-box">
+      <h3 id="confirm-modal-title">Confirm</h3>
+      <p id="confirm-modal-message"></p>
+      <div class="modal-actions">
+        <button class="btn btn-outline" id="confirm-modal-cancel">Cancel</button>
+        <button class="btn btn-primary" id="confirm-modal-ok">Confirm</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Custom Prompt Modal -->
+  <div id="prompt-modal" class="modal-overlay hidden">
+    <div class="modal-box">
+      <h3 id="prompt-modal-title">Edit</h3>
+      <form id="prompt-modal-form">
+        <div class="form-group">
+          <label id="prompt-modal-label" for="prompt-modal-input"></label>
+          <input type="text" id="prompt-modal-input" />
+          <textarea id="prompt-modal-textarea" rows="3" class="hidden"></textarea>
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-outline" id="prompt-modal-cancel">Cancel</button>
+          <button type="submit" class="btn btn-primary" id="prompt-modal-ok">Save</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <script src="/app.js"></script>
 </body>
 </html>

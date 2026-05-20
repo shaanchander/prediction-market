@@ -59,6 +59,96 @@ window.addEventListener('online', () => {
   showToast('Connection restored', 'success');
 });
 
+// --- Custom Confirmation Modal ---
+let confirmResolve = null;
+
+function showConfirmModal(title, message) {
+  return new Promise((resolve) => {
+    confirmResolve = resolve;
+    $('#confirm-modal-title').textContent = title;
+    $('#confirm-modal-message').textContent = message;
+    show($('#confirm-modal'));
+    $('#confirm-modal-ok').focus();
+  });
+}
+
+$('#confirm-modal-ok').addEventListener('click', () => {
+  hide($('#confirm-modal'));
+  if (confirmResolve) { confirmResolve(true); confirmResolve = null; }
+});
+
+$('#confirm-modal-cancel').addEventListener('click', () => {
+  hide($('#confirm-modal'));
+  if (confirmResolve) { confirmResolve(false); confirmResolve = null; }
+});
+
+// --- Custom Prompt Modal ---
+let promptResolve = null;
+
+function showPromptModal(title, label, defaultValue, isTextarea = false) {
+  return new Promise((resolve) => {
+    promptResolve = resolve;
+    $('#prompt-modal-title').textContent = title;
+    $('#prompt-modal-label').textContent = label;
+    const input = $('#prompt-modal-input');
+    const textarea = $('#prompt-modal-textarea');
+    if (isTextarea) {
+      hide(input);
+      show(textarea);
+      textarea.value = defaultValue || '';
+      textarea.focus();
+    } else {
+      show(input);
+      hide(textarea);
+      input.value = defaultValue || '';
+      input.focus();
+    }
+    show($('#prompt-modal'));
+  });
+}
+
+$('#prompt-modal-ok').addEventListener('click', () => {
+  const value = $('#prompt-modal-input').classList.contains('hidden')
+    ? $('#prompt-modal-textarea').value
+    : $('#prompt-modal-input').value;
+  hide($('#prompt-modal'));
+  if (promptResolve) { promptResolve(value); promptResolve = null; }
+});
+
+$('#prompt-modal-cancel').addEventListener('click', () => {
+  hide($('#prompt-modal'));
+  if (promptResolve) { promptResolve(null); promptResolve = null; }
+});
+
+// --- Keyboard Shortcuts ---
+document.addEventListener('keydown', (e) => {
+  // Escape closes modals
+  if (e.key === 'Escape') {
+    if (!$('#confirm-modal').classList.contains('hidden')) {
+      $('#confirm-modal-cancel').click();
+      return;
+    }
+    if (!$('#prompt-modal').classList.contains('hidden')) {
+      $('#prompt-modal-cancel').click();
+      return;
+    }
+    // Close create market form
+    if (!$('#create-market').classList.contains('hidden')) {
+      hide($('#create-market'));
+      return;
+    }
+  }
+  // Ctrl+K / Cmd+K focuses search
+  if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+    e.preventDefault();
+    const searchInput = $('#market-search');
+    if (searchInput) {
+      searchInput.focus();
+      searchInput.select();
+    }
+  }
+});
+
 // Format timestamp as "X time ago"
 function timeAgo(timestamp) {
   const seconds = Math.floor(Date.now() / 1000) - timestamp;
@@ -515,16 +605,17 @@ function renderBetHistory(bets) {
 
 // --- Edit Market ---
 window.editMarket = async function (marketId, title, description, expiresAt) {
-  const newTitle = prompt('Edit market title:', title);
+  const newTitle = await showPromptModal('Edit Market', 'Title:', title);
   if (newTitle === null) return;
-  const newDesc = prompt('Edit description:', description);
+  if (!newTitle.trim()) return showToast('Title cannot be empty');
+  const newDesc = await showPromptModal('Edit Market', 'Description:', description, true);
   if (newDesc === null) return;
   // For expiry, show current value formatted for datetime-local input
   const currentExpiry = expiresAt ? new Date(expiresAt).toISOString().slice(0, 16) : '';
-  const newExpiry = prompt('Expiry (ISO format, or leave blank to keep current):', currentExpiry);
+  const newExpiry = await showPromptModal('Edit Market', 'Expiry (datetime-local format, or leave blank to keep current):', currentExpiry);
   if (newExpiry === null) return;
   try {
-    await api(`/api/markets/${marketId}`, { method: 'PATCH', body: JSON.stringify({ title: newTitle, description: newDesc, expires_at: newExpiry || null }) });
+    await api(`/api/markets/${marketId}`, { method: 'PATCH', body: JSON.stringify({ title: newTitle.trim(), description: newDesc, expires_at: newExpiry || null }) });
     loadMarkets();
     showToast('Market updated', 'success');
   } catch (err) {
@@ -534,7 +625,8 @@ window.editMarket = async function (marketId, title, description, expiresAt) {
 
 // --- Delete Market ---
 window.deleteMarket = async function (marketId, title) {
-  if (!confirm(`Delete market "${title}"? This will also remove all bets on it.`)) return;
+  const confirmed = await showConfirmModal('Delete Market', `Delete market "${esc(title)}"? This will also remove all bets on it.`);
+  if (!confirmed) return;
   try {
     await api(`/api/markets/${marketId}`, { method: 'DELETE' });
     loadMarkets();
@@ -563,7 +655,8 @@ window.placeBet = async function (marketId, side) {
 
 // --- Resolve Market ---
 window.resolveMarket = async function (marketId, resolution) {
-  if (!confirm(`Resolve this market as ${resolution.toUpperCase()}?`)) return;
+  const confirmed = await showConfirmModal('Resolve Market', `Resolve this market as ${resolution.toUpperCase()}? Payouts will be distributed immediately.`);
+  if (!confirmed) return;
   try {
     await api('/api/resolve', { method: 'POST', body: JSON.stringify({ market_id: marketId, resolution }) });
     loadMarkets();
@@ -678,7 +771,8 @@ async function loadAdminUsers() {
 
 // --- Admin: Reset Password ---
 window.resetPassword = async function (userId, username) {
-  if (!confirm(`Reset password for "${username}"? They'll need to set a new password on next login.`)) return;
+  const confirmed = await showConfirmModal('Reset Password', `Reset password for "${esc(username)}"? They'll need to set a new password on next login.`);
+  if (!confirmed) return;
   try {
     await api(`/admin/users/${userId}/reset-password`, { method: 'POST' });
     showToast('Password reset for ' + username, 'success');
@@ -691,7 +785,8 @@ window.resetPassword = async function (userId, username) {
 
 // --- Admin: Change Role ---
 window.changeRole = async function (userId, newRole, label) {
-  if (!confirm(`Change this user's role to "${newRole}"?`)) return;
+  const confirmed = await showConfirmModal('Change Role', `Change this user's role to "${esc(newRole)}"?`);
+  if (!confirmed) return;
   try {
     await api(`/admin/users/${userId}`, { method: 'PATCH', body: JSON.stringify({ role: newRole }) });
     showToast('Role updated to ' + newRole, 'success');
@@ -704,7 +799,8 @@ window.changeRole = async function (userId, newRole, label) {
 
 // --- Admin: Delete User ---
 window.deleteUser = async function (userId, username) {
-  if (!confirm(`Delete user "${username}"? This will also remove their bets and markets.`)) return;
+  const confirmed = await showConfirmModal('Delete User', `Delete user "${esc(username)}"? This will also remove their bets and markets.`);
+  if (!confirmed) return;
   try {
     await api(`/admin/users/${userId}`, { method: 'DELETE' });
     showToast('User "' + username + '" deleted', 'success');
