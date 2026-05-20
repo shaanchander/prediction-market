@@ -296,6 +296,13 @@ header {
   border-top: none;
 }
 
+/* Admin Divider */
+.admin-divider {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 1.25rem 0;
+}
+
 /* Quick Bet Buttons */
 .quick-bet {
   display: flex;
@@ -638,6 +645,18 @@ header {
   gap: 0.2rem;
 }
 .stat-value { font-size: 1.25rem; font-weight: 700; color: var(--primary); }
+.stat-label { font-size: 0.7rem; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.05em; }
+
+/* Backup Status */
+.backup-status {
+  margin-top: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 0.8rem;
+  color: var(--text-dim);
+}
 .stat-label { font-size: 0.7rem; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.05em; }
 
 /* History Cards */

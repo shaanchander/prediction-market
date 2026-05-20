@@ -692,6 +692,40 @@ async function loadAdminStats() {
   }
 }
 
+// --- Admin: Backup ---
+$('#backup-btn').addEventListener('click', async () => {
+  try {
+    const btn = $('#backup-btn');
+    btn.textContent = 'Backing up...';
+    btn.disabled = true;
+    await api('/admin/backup', { method: 'POST' });
+    showToast('Database backed up', 'success');
+    loadBackupStatus();
+  } catch (err) {
+    showToast(err.message);
+  } finally {
+    const btn = $('#backup-btn');
+    btn.textContent = 'Backup Database';
+    btn.disabled = false;
+  }
+});
+
+async function loadBackupStatus() {
+  try {
+    const data = await api('/admin/backup');
+    const el = $('#backup-status');
+    if (!data.backups.length) {
+      el.textContent = 'No backups yet.';
+      return;
+    }
+    const latest = data.backups[0];
+    const date = new Date(latest.created).toLocaleString();
+    el.textContent = `Last backup: ${date}`;
+  } catch (err) {
+    console.error('Failed to load backup status:', err);
+  }
+}
+
 // --- Render Leaderboard ---
 function renderLeaderboard(users) {
   const container = $('#leaderboard-list');
@@ -820,6 +854,7 @@ function navigateTo(page) {
     hide($('#new-market-btn'));
     loadAdminUsers();
     loadAdminStats();
+    loadBackupStatus();
   }
 }
 

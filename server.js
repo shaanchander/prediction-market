@@ -13,6 +13,74 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 const JWT_SECRET = process.env.JWT_SECRET;
 const JWT_EXPIRY = process.env.JWT_EXPIRY || '7d';
+const fs = require('fs');
+
+// --- Database Backup ---
+const BACKUP_DIR = path.join(__dirname, 'backups');
+const MAX_BACKUPS = 10; // Keep last N backups
+const BACKUP_INTERVAL_MS = parseInt(process.env.BACKUP_INTERVAL_MS) || 60 * 60 * 1000; // Default: 1 hour
+
+function ensureBackupDir() {
+  if (!fs.existsSync(BACKUP_DIR)) fs.mkdirSync(BACKUP_DIR, { recursive: true });
+}
+
+function backupDatabase(label = 'manual') {
+  ensureBackupDir();
+  const timestamp = new Date().toISOString().replace(/[:.]/g, '-').replace(/T/, '_').replace(/Z$/, '');
+  const filename = `backup_${timestamp}_${label}.db`;
+  const backupPath = path.join(BACKUP_DIR, filename);
+
+  // Force WAL checkpoint for consistency, then copy the file
+  db.pragma('wal_checkpoint(TRUNCATE)');
+  fs.copyFileSync(DB_PATH, backupPath);
+
+  // Cleanup old backups — keep only the latest MAX_BACKUPS
+  cleanupOldBackups();
+
+  const size = fs.statSync(backupPath).size;
+  console.log(`Backup created: ${filename} (${formatBytes(size)})`);
+  return { filename, path: backupPath, size, timestamp: new Date().toISOString() };
+}
+
+function cleanupOldBackups() {
+  if (!fs.existsSync(BACKUP_DIR)) return;
+  const files = fs.readdirSync(BACKUP_DIR)
+    .filter(f => f.startsWith('backup_') && f.endsWith('.db'))
+    .sort() // Oldest first
+    .map(f => ({ name: f, mtime: fs.statSync(path.join(BACKUP_DIR, f)).mtime }));
+
+  while (files.length > MAX_BACKUPS) {
+    const oldest = files.shift();
+    fs.unlinkSync(path.join(BACKUP_DIR, oldest.name));
+    console.log(`Removed old backup: ${oldest.name}`);
+  }
+}
+
+function listBackups() {
+  if (!fs.existsSync(BACKUP_DIR)) return [];
+  return fs.readdirSync(BACKUP_DIR)
+    .filter(f => f.startsWith('backup_') && f.endsWith('.db'))
+    .map(f => {
+      const stat = fs.statSync(path.join(BACKUP_DIR, f));
+      return { filename: f, size: stat.size, created: stat.mtime.toISOString() };
+    })
+    .sort((a, b) => new Date(b.created) - new Date(a.created));
+}
+
+function formatBytes(bytes) {
+  if (bytes === 0) return '0 B';
+  const k = 1024;
+  const sizes = ['B', 'KB', 'MB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+}
+
+// Schedule automatic backups
+ensureBackupDir();
+setInterval(() => {
+  try { backupDatabase('auto'); } catch (err) { console.error('Backup failed:', err.message); }
+}, BACKUP_INTERVAL_MS);
+console.log(`Auto-backup enabled: every ${BACKUP_INTERVAL_MS / 60000}min, keeping last ${MAX_BACKUPS} backups`);
 
 // --- Middleware ---
 app.use(helmet({
@@ -755,6 +823,24 @@ app.post('/admin/topup', requireAuth, requireAdmin, (_req, res) => {
     res.json({ ok: true, users_updated: result.changes });
   } catch (err) {
     res.status(500).json({ error: 'Failed to top up users' });
+  }
+});
+
+// --- Backup Endpoints ---
+app.post('/admin/backup', requireAuth, requireAdmin, (_req, res) => {
+  try {
+    const info = backupDatabase('manual');
+    res.json({ ok: true, ...info });
+  } catch (err) {
+    res.status(500).json({ error: 'Backup failed: ' + err.message });
+  }
+});
+
+app.get('/admin/backup', requireAuth, requireAdmin, (_req, res) => {
+  try {
+    res.json({ backups: listBackups() });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to list backups' });
   }
 });
 
