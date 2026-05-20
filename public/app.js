@@ -27,6 +27,38 @@ const $$ = (sel) => document.querySelectorAll(sel);
 const show = (el) => el.classList.remove('hidden');
 const hide = (el) => el.classList.add('hidden');
 
+// --- Network Error Banner ---
+function showNetworkBanner(message) {
+  const banner = $('#network-banner');
+  $('#network-banner-msg').textContent = message;
+  show(banner);
+}
+
+function hideNetworkBanner() {
+  hide($('#network-banner'));
+}
+
+// --- Helper to check if error is a network error ---
+function isNetworkError(err) {
+  if (!err) return false;
+  return err.message === 'Failed to fetch' || 
+         err.message === 'NetworkError when attempting to fetch resource' ||
+         err.message.includes('Network') ||
+         err.type === 'network';
+}
+
+// --- Network Event Listeners ---
+$('#network-banner-close').addEventListener('click', hideNetworkBanner);
+
+window.addEventListener('offline', () => {
+  showNetworkBanner('⚠️ You are offline. Changes will not sync until you reconnect.');
+});
+
+window.addEventListener('online', () => {
+  hideNetworkBanner();
+  showToast('Connection restored', 'success');
+});
+
 // Format timestamp as "X time ago"
 function timeAgo(timestamp) {
   const seconds = Math.floor(Date.now() / 1000) - timestamp;
@@ -60,6 +92,12 @@ function api(path, opts = {}) {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Request failed');
       return data;
+    })
+    .catch(err => {
+      if (isNetworkError(err)) {
+        showNetworkBanner('⚠️ Cannot reach server. Check connection and try again.');
+      }
+      throw err;
     });
 }
 
@@ -555,8 +593,8 @@ async function loadMarkets() {
     else if (sort === 'popular') markets.sort((a, b) => (b.bet_count || 0) - (a.bet_count || 0));
 
     renderMarkets(markets, '📊', search ? 'No markets match your search' : 'No active markets yet');
-  } catch {
-    renderMarkets([]);
+  } catch (err) {
+    if (!isNetworkError(err)) renderMarkets([]);
   }
 }
 
@@ -568,8 +606,8 @@ async function loadLegacyMarkets() {
     let markets = await api(`/api/markets?${params}`);
 
     renderMarketsLegacy(markets, search ? 'No resolved markets match your search' : 'No resolved markets yet');
-  } catch {
-    renderMarketsLegacy([]);
+  } catch (err) {
+    if (!isNetworkError(err)) renderMarketsLegacy([]);
   }
 }
 
@@ -590,8 +628,10 @@ async function loadLeaderboard() {
   try {
     const users = await api('/api/leaderboard');
     renderLeaderboard(users);
-  } catch {
-    $('#leaderboard-list').innerHTML = '<p style="color:var(--text-dim);text-align:center;padding:2rem;">Failed to load leaderboard.</p>';
+  } catch (err) {
+    if (!isNetworkError(err)) {
+      $('#leaderboard-list').innerHTML = '<p style="color:var(--text-dim);text-align:center;padding:2rem;">Failed to load leaderboard.</p>';
+    }
   }
 }
 
@@ -600,7 +640,9 @@ async function loadBetHistory() {
     const bets = await api('/api/history');
     renderBetHistory(bets);
   } catch (err) {
-    $('#history-list').innerHTML = `<p style="color:var(--text-dim);text-align:center;padding:2rem;">Failed to load history: ${esc(err.message)}</p>`;
+    if (!isNetworkError(err)) {
+      $('#history-list').innerHTML = `<p style="color:var(--text-dim);text-align:center;padding:2rem;">Failed to load history: ${esc(err.message)}</p>`;
+    }
   }
 }
 
