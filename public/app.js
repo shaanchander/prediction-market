@@ -867,9 +867,7 @@ function onLogout() {
   hide($('#new-market-btn'));
   hide($('#user-bar'));
   hide($('#nav-bar'));
-  hide($('#admin-panel'));
-  hide($('#markets-section'));
-  hide($('#history-section'));
+  $$('.page').forEach((section) => hide(section));
   pendingUsername = null;
 }
 
