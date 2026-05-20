@@ -98,52 +98,57 @@
     <!-- Create Market Toggle Button -->
     <button id="new-market-btn" class="btn btn-primary hidden" style="align-self:flex-start;">+ New Market</button>
 
-    <!-- Create Market -->
-    <section id="create-market" class="card hidden">
-      <div class="card-header">
-        <h2>Create Market</h2>
-        <button type="button" class="btn-close" id="close-create-market">✕</button>
+    <!-- Create Market Bottom Sheet -->
+    <div id="create-market-sheet-overlay" class="bet-sheet-overlay hidden">
+      <div class="bet-sheet">
+        <div class="bet-sheet-handle"></div>
+        <div class="bet-sheet-header">
+          <h3>Create Market</h3>
+          <button type="button" class="btn-close" id="close-create-market">✕</button>
+        </div>
+        <div class="bet-sheet-body">
+          <form id="market-form">
+            <div class="form-group">
+              <label for="market-title">What will happen?</label>
+              <input type="text" id="market-title" required placeholder="Will Bitcoin hit $150k by year end?" />
+            </div>
+            <div class="form-group">
+              <label for="market-desc">Description (optional)</label>
+              <textarea id="market-desc" rows="2" placeholder="Add context or clarify the outcome..."></textarea>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label for="market-min">Min Stake</label>
+                <input type="number" id="market-min" value="1" min="1" />
+              </div>
+              <div class="form-group">
+                <label for="market-max">Max Stake</label>
+                <input type="number" id="market-max" min="1" placeholder="No limit" />
+              </div>
+            </div>
+            <div class="form-group">
+              <label for="market-expires">Expiry (optional — bets close at this time)</label>
+              <div class="expiry-row">
+                <div class="datetime-picker-wrap">
+                  <input type="datetime-local" id="market-expires" class="datetime-picker" />
+                  <span class="datetime-hint">Select date &amp; time</span>
+                </div>
+                <div class="expiry-presets">
+                  <button type="button" class="preset-btn" data-hours="1">1h</button>
+                  <button type="button" class="preset-btn" data-hours="6">6h</button>
+                  <button type="button" class="preset-btn" data-hours="24">24h</button>
+                  <button type="button" class="preset-btn" data-hours="72">3d</button>
+                  <button type="button" class="preset-btn" data-hours="168">7d</button>
+                  <button type="button" class="preset-btn preset-clear">Clear</button>
+                </div>
+              </div>
+            </div>
+            <button type="submit" class="btn btn-primary btn-full">Create Market</button>
+            <div class="form-msg" id="market-msg"></div>
+          </form>
+        </div>
       </div>
-      <form id="market-form">
-        <div class="form-group">
-          <label for="market-title">What will happen?</label>
-          <input type="text" id="market-title" required placeholder="Will Bitcoin hit $150k by year end?" />
-        </div>
-        <div class="form-group">
-          <label for="market-desc">Description (optional)</label>
-          <textarea id="market-desc" rows="2" placeholder="Add context or clarify the outcome..."></textarea>
-        </div>
-        <div class="form-row">
-          <div class="form-group">
-            <label for="market-min">Min Stake</label>
-            <input type="number" id="market-min" value="1" min="1" />
-          </div>
-          <div class="form-group">
-            <label for="market-max">Max Stake</label>
-            <input type="number" id="market-max" min="1" placeholder="No limit" />
-          </div>
-        </div>
-        <div class="form-group">
-          <label for="market-expires">Expiry (optional — bets close at this time)</label>
-          <div class="expiry-row">
-            <div class="datetime-picker-wrap">
-              <input type="datetime-local" id="market-expires" class="datetime-picker" />
-              <span class="datetime-hint">Select date &amp; time</span>
-            </div>
-            <div class="expiry-presets">
-              <button type="button" class="preset-btn" data-hours="1">1h</button>
-              <button type="button" class="preset-btn" data-hours="6">6h</button>
-              <button type="button" class="preset-btn" data-hours="24">24h</button>
-              <button type="button" class="preset-btn" data-hours="72">3d</button>
-              <button type="button" class="preset-btn" data-hours="168">7d</button>
-              <button type="button" class="preset-btn preset-clear">Clear</button>
-            </div>
-          </div>
-        </div>
-        <button type="submit" class="btn btn-primary btn-full">Create Market</button>
-        <div class="form-msg" id="market-msg"></div>
-      </form>
-    </section>
+    </div>
 
     <!-- Admin Panel -->
     <section id="admin-panel" class="page hidden">

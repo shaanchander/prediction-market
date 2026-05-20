@@ -217,8 +217,8 @@ document.addEventListener('keydown', (e) => {
       return;
     }
     // Close create market form
-    if (!$('#create-market').classList.contains('hidden')) {
-      hide($('#create-market'));
+    if (!$('#create-market-sheet-overlay').classList.contains('hidden')) {
+      hide($('#create-market-sheet-overlay'));
       return;
     }
   }
@@ -359,10 +359,13 @@ $('#market-form').addEventListener('submit', async (e) => {
   const expires_at = $('#market-expires').value || null;
   try {
     await api('/api/markets', { method: 'POST', body: JSON.stringify({ title, description, min_stake, max_stake, expires_at }) });
-    flashMsg($('#market-msg'), 'Market created!', 'success');
-    $('#market-form').reset();
-    hide($('#create-market'));
-    show($('#new-market-btn'));
+    showToast('Market created!', 'success');
+    const overlay = $('#create-market-sheet-overlay');
+    overlay.classList.remove('bet-sheet-open');
+    setTimeout(() => {
+      overlay.classList.add('hidden');
+      $('#market-form').reset();
+    }, 250);
     loadMarkets();
   } catch (err) {
     flashMsg($('#market-msg'), err.message);
@@ -436,12 +439,17 @@ $('#market-expires')?.addEventListener('input', () => {
 
 // --- Toggle Create Market ---
 $('#new-market-btn').addEventListener('click', () => {
-  hide($('#new-market-btn'));
-  show($('#create-market'));
-  $('#market-title').focus();
+  const overlay = $('#create-market-sheet-overlay');
+  overlay.classList.remove('hidden');
+  requestAnimationFrame(() => {
+    overlay.classList.add('bet-sheet-open');
+  });
+  setTimeout(() => $('#market-title')?.focus(), 300);
 });
 $('#close-create-market').addEventListener('click', () => {
-  hide($('#create-market'));
+  const overlay = $('#create-market-sheet-overlay');
+  overlay.classList.remove('bet-sheet-open');
+  setTimeout(() => overlay.classList.add('hidden'), 250);
 });
 
 // --- Toggle Voters ---
@@ -942,6 +950,15 @@ $('#bet-sheet-overlay')?.addEventListener('click', (e) => {
   if (e.target.id === 'bet-sheet-overlay') closeBetSheet();
 });
 
+// Close create market sheet on overlay background tap
+$('#create-market-sheet-overlay')?.addEventListener('click', (e) => {
+  if (!e.target.closest('.bet-sheet')) {
+    const overlay = $('#create-market-sheet-overlay');
+    overlay.classList.remove('bet-sheet-open');
+    setTimeout(() => overlay.classList.add('hidden'), 250);
+  }
+});
+
 // --- Resolve Market ---
 window.resolveMarket = async function (marketId, resolution) {
   const confirmed = await showConfirmModal('Resolve Market', `Resolve this market as ${resolution.toUpperCase()}? Payouts will be distributed immediately.`);
@@ -1403,7 +1420,7 @@ function navigateTo(page) {
   if (page === 'markets') {
     show($('#markets-section'));
     show($('#new-market-btn'));
-    hide($('#create-market'));
+    hide($('#create-market-sheet-overlay'));
     loadMarkets();
   } else if (page === 'legacy') {
     show($('#legacy-section'));
@@ -1411,18 +1428,18 @@ function navigateTo(page) {
     loadLegacyMarkets();
   } else if (page === 'leaderboard') {
     show($('#leaderboard-section'));
-    hide($('#create-market'));
+    hide($('#create-market-sheet-overlay'));
     hide($('#new-market-btn'));
     loadLeaderboard();
   } else if (page === 'history') {
     show($('#history-section'));
-    hide($('#create-market'));
+    hide($('#create-market-sheet-overlay'));
     hide($('#new-market-btn'));
     loadBetHistory();
   } else if (page === 'admin') {
     stopPolling();
     show($('#admin-panel'));
-    hide($('#create-market'));
+    hide($('#create-market-sheet-overlay'));
     hide($('#new-market-btn'));
     loadAdminUsers();
     loadAdminStats();
@@ -1471,7 +1488,7 @@ function onLogout() {
   show($('#auth-panel'));
   show($('#login-form'));
   hide($('#set-password-form'));
-  hide($('#create-market'));
+  hide($('#create-market-sheet-overlay'));
   hide($('#new-market-btn'));
   hide($('#user-bar'));
   hide($('#nav-bar'));

@@ -600,7 +600,29 @@ header {
 /* Bet Sheet Trigger — hidden on desktop */
 .bet-sheet-trigger { display: none; }
 
-/* Bet Bottom Sheet */
+/* Create Market Sheet — centered modal on desktop */
+@media (min-width: 769px) {
+  .bet-sheet-overlay {
+    align-items: center !important;
+  }
+  .bet-sheet {
+    border-radius: 12px !important;
+    border-bottom: 1px solid var(--border) !important;
+    transform: scale(0.95) translateY(10px) !important;
+    opacity: 0;
+    transition: transform 0.25s cubic-bezier(0.32, 0.72, 0, 1), opacity 0.2s ease !important;
+    max-height: 85vh;
+  }
+  .bet-sheet-overlay.bet-sheet-open .bet-sheet {
+    transform: scale(1) translateY(0) !important;
+    opacity: 1;
+  }
+  .bet-sheet-handle {
+    display: none;
+  }
+}
+
+/* Bet Bottom Sheet — default mobile (bottom sheet) */
 .bet-sheet-overlay {
   position: fixed;
   inset: 0;
