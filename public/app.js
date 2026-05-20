@@ -1167,4 +1167,12 @@ async function init() {
   }
 }
 
+// Prevent iOS Safari from loading page scrolled down
+if ('scrollRestoration' in history) {
+  history.scrollRestoration = 'manual';
+}
+window.addEventListener('load', () => {
+  window.scrollTo(0, 0);
+});
+
 init();
