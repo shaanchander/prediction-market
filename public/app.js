@@ -960,6 +960,9 @@ window.resolveMarket = async function (marketId, resolution) {
 $$('.nav-link').forEach((btn) => {
   btn.addEventListener('click', () => navigateTo(btn.dataset.page));
 });
+$$('.bottom-nav-item').forEach((btn) => {
+  btn.addEventListener('click', () => navigateTo(btn.dataset.page));
+});
 
 // --- Load Data ---
 async function loadMarkets() {
@@ -1392,6 +1395,9 @@ function navigateTo(page) {
   $$('.nav-link').forEach((btn) => {
     btn.classList.toggle('active', btn.dataset.page === page);
   });
+  $$('.bottom-nav-item').forEach((btn) => {
+    btn.classList.toggle('active', btn.dataset.page === page);
+  });
   $$('.page').forEach((section) => hide(section));
 
   if (page === 'markets') {
@@ -1447,6 +1453,7 @@ function onAuth() {
   hide($('#auth-panel'));
   show($('#user-bar'));
   show($('#nav-bar'));
+  show($('#bottom-nav'));
   updateUserBar();
 
   // Show admin nav link for admins
