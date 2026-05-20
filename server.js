@@ -378,7 +378,8 @@ app.get('/api/markets', requireAuth, (req, res) => {
     let markets;
 
     if (search) {
-      const pattern = `%${search}%`;
+      const escaped = search.replace(/%/g, '\\%').replace(/_/g, '\\_');
+      const pattern = `%${escaped}%`;
       markets = searchMarkets.all(pattern, pattern);
       // Filter by type if specified
       if (type === 'active') markets = markets.filter(m => m.resolved === 0);
