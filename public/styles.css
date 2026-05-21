@@ -943,27 +943,68 @@ header {
 }
 
 /* Leaderboard */
-.leaderboard-list { display: flex; flex-direction: column; gap: 0.5rem; }
-.leaderboard-row {
+.leaderboard-header {
   display: flex;
   align-items: center;
-  gap: 1rem;
+  justify-content: space-between;
+  margin-bottom: 0.75rem;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+.leaderboard-header h2 { margin: 0; }
+.leaderboard-sort {
+  display: flex;
+  gap: 0.25rem;
+}
+.sort-btn {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0.3rem 0.75rem;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.sort-btn:hover { border-color: var(--primary); color: var(--text); }
+.sort-btn.active { background: var(--primary-glow); border-color: var(--primary); color: var(--primary); }
+
+.leaderboard-list { display: flex; flex-direction: column; gap: 0.5rem; }
+.leaderboard-table {
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 0.75rem 1.25rem;
-  font-size: 0.9rem;
+  border-radius: var(--radius);
+  overflow: hidden;
 }
-.leaderboard-row.highlight { border-color: var(--primary); background: rgba(108, 92, 231, 0.08); }
-.leaderboard-rank {
-  font-size: 1.25rem;
+.leaderboard-table-header {
+  display: grid;
+  grid-template-columns: 3rem 1fr 1fr 1fr 1fr;
+  padding: 0.6rem 1rem;
+  background: var(--bg);
+  border-bottom: 1px solid var(--border);
+  font-size: 0.7rem;
   font-weight: 700;
-  width: 2rem;
-  text-align: center;
-  flex-shrink: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-dim);
 }
-.leaderboard-name { flex: 1; font-weight: 600; }
-.leaderboard-tokens { font-weight: 700; color: var(--primary); }
+.leaderboard-table-row {
+  display: grid;
+  grid-template-columns: 3rem 1fr 1fr 1fr 1fr;
+  align-items: center;
+  padding: 0.7rem 1rem;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.85rem;
+  transition: background 0.1s;
+}
+.leaderboard-table-row:last-child { border-bottom: none; }
+.leaderboard-table-row:hover { background: var(--surface-hover); }
+.leaderboard-table-row.highlight { background: rgba(108, 92, 231, 0.08); }
+.lt-rank { font-size: 1.1rem; font-weight: 700; text-align: center; }
+.lt-name { font-weight: 600; }
+.lt-stat { font-weight: 600; text-align: right; }
+.lt-stat:first-of-type { text-align: right; }
 
 /* Set Password Form */
 .set-password-welcome {

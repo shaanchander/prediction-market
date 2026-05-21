@@ -240,7 +240,14 @@
 
     <!-- Leaderboard -->
     <section id="leaderboard-section" class="page hidden">
-      <h2>🏆 Leaderboard</h2>
+      <div class="leaderboard-header">
+        <h2>🏆 Leaderboard</h2>
+        <div class="leaderboard-sort">
+          <button class="sort-btn active" data-sort="tokens">By Tokens</button>
+          <button class="sort-btn" data-sort="winRate">By Win Rate</button>
+          <button class="sort-btn" data-sort="netProfit">By Profit</button>
+        </div>
+      </div>
       <div id="leaderboard-list" class="leaderboard-list"></div>
     </section>
 

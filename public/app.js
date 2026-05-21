@@ -1311,10 +1311,18 @@ $('#admin-refund-delete-btn').addEventListener('click', async () => {
   }
 });
 
+let leaderboardData = [];
+let leaderboardSort = 'tokens';
+
 // --- Render Leaderboard ---
 function renderLeaderboard(users) {
+  leaderboardData = users;
+  renderLeaderboardSorted();
+}
+
+function renderLeaderboardSorted() {
   const container = $('#leaderboard-list');
-  if (!users.length) {
+  if (!leaderboardData.length) {
     container.innerHTML = `
       <div class="empty-state">
         <div class="empty-state-icon">🏆</div>
@@ -1323,19 +1331,49 @@ function renderLeaderboard(users) {
     return;
   }
 
+  const sorted = [...leaderboardData].sort((a, b) => {
+    if (leaderboardSort === 'winRate') return b.winRate - a.winRate;
+    if (leaderboardSort === 'netProfit') return b.netProfit - a.netProfit;
+    return b.tokens - a.tokens;
+  });
+
   const medals = ['🥇', '🥈', '🥉'];
-  container.innerHTML = users.map((u, i) => {
-    const rank = i < 3 ? medals[i] : `#${i + 1}`;
-    const isCurrentUser = currentUser && currentUser.id === u.id;
-    const highlight = isCurrentUser ? ' style="border-color:var(--primary);background:rgba(108,92,231,0.08);" class="highlight"' : '';
-    return `
-      <div class="leaderboard-row"${highlight}>
-        <span class="leaderboard-rank">${rank}</span>
-        <span class="leaderboard-name">${esc(u.username)}${isCurrentUser ? ' (You)' : ''}</span>
-        <span class="leaderboard-tokens">${u.tokens} tokens</span>
-      </div>`;
-  }).join('');
+  container.innerHTML = `
+    <div class="leaderboard-table">
+      <div class="leaderboard-table-header">
+        <span class="lt-rank">#</span>
+        <span class="lt-name">Player</span>
+        <span class="lt-stat">Tokens</span>
+        <span class="lt-stat">Win Rate</span>
+        <span class="lt-stat">Profit</span>
+      </div>
+      ${sorted.map((u, i) => {
+        const rank = i < 3 ? medals[i] : `#${i + 1}`;
+        const isCurrentUser = currentUser && currentUser.id === u.id;
+        const highlight = isCurrentUser ? ' highlight' : '';
+        const profitClass = u.netProfit >= 0 ? 'stats-positive' : 'stats-negative';
+        const profitStr = (u.netProfit >= 0 ? '+' : '') + u.netProfit;
+        const wrClass = u.winRate >= 60 ? 'stats-positive' : (u.winRate < 40 && u.wins + u.losses > 0 ? 'stats-negative' : '');
+        return `
+          <div class="leaderboard-table-row${highlight}">
+            <span class="lt-rank">${rank}</span>
+            <span class="lt-name">${esc(u.username)}${isCurrentUser ? ' (You)' : ''}</span>
+            <span class="lt-stat">${u.tokens}</span>
+            <span class="lt-stat ${wrClass}">${u.wins + u.losses > 0 ? u.winRate + '%' : '—'}</span>
+            <span class="lt-stat ${profitClass}">${profitStr}</span>
+          </div>`;
+      }).join('')}
+    </div>`;
 }
+
+// Sort toggle buttons
+$$('.sort-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    leaderboardSort = btn.dataset.sort;
+    $$('.sort-btn').forEach(b => b.classList.toggle('active', b === btn));
+    renderLeaderboardSorted();
+  });
+});
 
 // --- Render Legacy Markets (simplified, no betting) ---
 function renderMarketsLegacy(markets, emptyText = 'No resolved markets yet') {

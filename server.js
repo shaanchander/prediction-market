@@ -582,8 +582,29 @@ app.get('/api/markets/:id/bets', requireAuth, (req, res) => {
 // --- Leaderboard Endpoint ---
 app.get('/api/leaderboard', requireAuth, (_req, res) => {
   try {
-    const rows = db.prepare('SELECT id, username, tokens FROM users ORDER BY tokens DESC').all();
-    res.json(rows);
+    const users = db.prepare('SELECT id, username, tokens, role FROM users ORDER BY tokens DESC').all();
+    const result = users.map(u => {
+      const bets = getUserBets.all(u.id);
+      const resolvedBets = bets.filter(b => b.resolved === 1);
+      let wins = 0;
+      let totalStaked = 0;
+      let totalReturned = 0;
+      bets.forEach(b => {
+        totalStaked += b.amount;
+        if (b.resolved === 1 && b.side === b.resolution) {
+          wins++;
+          const winningPool = b.side === 'yes' ? b.yes_pool : b.no_pool;
+          const losingPool = b.side === 'yes' ? b.no_pool : b.yes_pool;
+          const payout = b.amount + Math.floor((b.amount / winningPool) * losingPool);
+          totalReturned += payout;
+        }
+      });
+      const losses = resolvedBets.length - wins;
+      const winRate = resolvedBets.length > 0 ? Math.round((wins / resolvedBets.length) * 100) : 0;
+      const netProfit = totalReturned - totalStaked;
+      return { id: u.id, username: u.username, tokens: u.tokens, wins, losses, winRate, netProfit };
+    });
+    res.json(result);
   } catch (err) {
     res.status(500).json({ error: 'Failed to fetch leaderboard' });
   }
