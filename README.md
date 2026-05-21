@@ -20,10 +20,14 @@ Copy `.env.example` to `.env` and set `JWT_SECRET` and `ADMIN_PASSWORD` before s
 - **Binary Yes/No markets** — Any authenticated user can create markets
 - **Pari-mutuel betting** — Winners split the opposing pool proportionally
 - **20% per-bet cap** — Maximum bet is 20% of your token balance
-- **Token economy** — 1000 starting tokens, 50/week admin top-up
+- **Token economy** — 1000 starting tokens, admin top-up grants 50 tokens per user
 - **Market expiry** — Optional deadline after which betting closes
 - **Admin resolution** — Admins resolve markets, triggering automatic payouts
-- **Responsive UI** — Works on desktop and mobile
+- **Admin bet refunds** — Cancel individual bets, refunding tokens and removing from pool
+- **User profiles** — View any user's stats: wins, losses, win rate, profit/loss
+- **Live polling** — Markets auto-refresh every 10 seconds
+- **Auto backup** — Daily database backups, retained for 7 days
+- **Responsive UI** — Bottom sheets on mobile, centered modals on desktop
 - **SQLite backend** — Data persists in `data.db` (WAL mode)
 
 ## Configuration
@@ -81,6 +85,15 @@ All endpoints require a valid JWT Bearer token except `/api/login` and `/api/set
 | DELETE | `/admin/users/:id` | Delete user |
 | POST | `/admin/users/:id/reset-password` | Force password reset |
 | POST | `/admin/topup` | Grant +50 tokens to all regular users |
+| GET | `/admin/markets/:id/bets` | List bets on a market (with usernames) |
+| POST | `/admin/bets/:id/refund` | Refund a single bet (tokens returned, pool adjusted) |
+| POST | `/admin/markets/:id/refund-and-delete` | Refund all bets then delete market |
+
+### User Profile
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/users/:username` | User stats: bets, wins, losses, win rate, profit/loss |
 
 ## Security
 
