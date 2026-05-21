@@ -167,12 +167,56 @@ db.exec(`
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
     FOREIGN KEY (market_id) REFERENCES markets(id) ON DELETE CASCADE
   );
+
+  CREATE TABLE IF NOT EXISTS activity_log (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER,
+    action TEXT NOT NULL,
+    details TEXT,
+    created_at INTEGER NOT NULL,
+    FOREIGN KEY (user_id) REFERENCES users(id)
+  );
 `);
 
 // --- Migration: add must_set_password column if it doesn't exist (for existing DBs) ---
 try { db.exec('ALTER TABLE users ADD COLUMN must_set_password INTEGER NOT NULL DEFAULT 0'); } catch {}
 // --- Migration: add expires_at column if it doesn't exist ---
 try { db.exec('ALTER TABLE markets ADD COLUMN expires_at INTEGER'); } catch {}
+// --- Migration: create activity_log table if it doesn't exist ---
+try {
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS activity_log (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER,
+      action TEXT NOT NULL,
+      details TEXT,
+      ip TEXT,
+      created_at INTEGER NOT NULL,
+      FOREIGN KEY (user_id) REFERENCES users(id)
+    );
+  `);
+} catch {}
+// Migration: add ip column to activity_log if missing
+try { db.exec('ALTER TABLE activity_log ADD COLUMN ip TEXT'); } catch {}
+
+// --- Activity Logger ---
+const insertActivityLog = db.prepare(
+  'INSERT INTO activity_log (user_id, action, details, ip, created_at) VALUES (?, ?, ?, ?, ?)'
+);
+
+function logActivity(userId, action, details, ip) {
+  try {
+    insertActivityLog.run(
+      userId,
+      action,
+      sanitizeHtml(details || ''),
+      ip || null,
+      Math.floor(Date.now() / 1000)
+    );
+  } catch (err) {
+    console.error('Activity log write failed:', err.message);
+  }
+}
 
 // --- Create indexes for query performance ---
 db.exec('CREATE INDEX IF NOT EXISTS idx_bets_user_id ON bets(user_id)');
@@ -364,6 +408,7 @@ app.post('/api/login', authLimiter, (req, res) => {
 
     const token = jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: JWT_EXPIRY, algorithm: 'HS256' });
 
+    logActivity(user.id, 'login', `User ${user.username} logged in`);
     res.json({ token, user: { id: user.id, username: user.username, role: user.role, tokens: user.tokens } });
   } catch (err) {
     res.status(500).json({ error: 'Login failed' });
@@ -388,6 +433,7 @@ app.post('/api/set-password', authLimiter, (req, res) => {
     const updatedUser = getUserById.get(user.id);
     const token = jwt.sign({ userId: updatedUser.id }, JWT_SECRET, { expiresIn: JWT_EXPIRY, algorithm: 'HS256' });
 
+    logActivity(updatedUser.id, 'set_password', `User ${updatedUser.username} set password`);
     res.json({ token, user: { id: updatedUser.id, username: updatedUser.username, role: updatedUser.role, tokens: updatedUser.tokens } });
   } catch (err) {
     res.status(500).json({ error: 'Failed to set password' });
@@ -440,6 +486,7 @@ app.post('/api/markets', requireAuth, (req, res) => {
     );
 
     const market = getMarketById.get(result.lastInsertRowid);
+    logActivity(req.user.user_id, 'create_market', `Created market: ${market.title}`);
     res.status(201).json(market);
   } catch (err) {
     res.status(500).json({ error: 'Failed to create market' });
@@ -530,6 +577,7 @@ app.patch('/api/markets/:id', requireAuth, (req, res) => {
 
     updateMarket.run(cleanTitle.trim(), cleanDesc.trim(), expiresAt, marketId);
     const updated = getMarketById.get(marketId);
+    logActivity(req.user.user_id, 'edit_market', `Edited market: ${updated.title}`);
     res.json(updated);
   } catch (err) {
     res.status(500).json({ error: 'Failed to update market' });
@@ -551,6 +599,7 @@ app.delete('/api/markets/:id', requireAuth, (req, res) => {
     }
 
     deleteMarket.run(marketId);
+    logActivity(req.user.user_id, 'delete_market', `Deleted market: ${market.title}`);
     res.json({ ok: true, title: market.title });
   } catch (err) {
     res.status(500).json({ error: 'Failed to delete market' });
@@ -672,6 +721,7 @@ app.post('/api/bet', requireAuth, (req, res) => {
     const updatedUser = getUserById.get(req.user.user_id);
     const updatedMarket = getMarketById.get(market_id);
 
+    logActivity(req.user.user_id, 'place_bet', `${user.username} bet ${betAmount} ${side} on market #${market_id}`);
     res.json({
       bet: { market_id, side, amount: betAmount },
       user: { tokens: updatedUser.tokens },
@@ -718,6 +768,7 @@ app.post('/api/resolve', requireAuth, requireAdmin, (req, res) => {
     payoutStmt(winningBets);
 
     const updatedMarket = getMarketById.get(market_id);
+    logActivity(req.user.user_id, 'resolve_market', `${req.user.username} resolved market #${market_id} → ${resolution} (${winningBets.length} payouts)`);
     res.json({ market: updatedMarket, payouts: winningBets.length });
   } catch (err) {
     res.status(500).json({ error: 'Failed to resolve market' });
@@ -788,6 +839,7 @@ app.post('/admin/users', requireAuth, requireAdmin, (req, res) => {
     const result = insertUser.run(username, placeholderHash, role, 1000, 1);
     const user = getUserById.get(result.lastInsertRowid);
 
+    logActivity(req.user.user_id, 'create_user', `${req.user.username} created user ${username} (role: ${role})`);
     res.status(201).json({ id: user.id, username: user.username, role: user.role, tokens: user.tokens, must_set_password: user.must_set_password });
   } catch (err) {
     res.status(500).json({ error: 'Failed to create user' });
@@ -801,6 +853,7 @@ app.post('/admin/users/:id/reset-password', requireAuth, requireAdmin, (req, res
     if (!user) return res.status(404).json({ error: 'User not found' });
 
     resetUserPasswordFlag.run(userId);
+    logActivity(req.user.user_id, 'reset_password', `${req.user.username} reset password for ${user.username}`);
     res.json({ ok: true, username: user.username });
   } catch (err) {
     res.status(500).json({ error: 'Failed to reset password' });
@@ -823,8 +876,10 @@ app.patch('/admin/users/:id', requireAuth, requireAdmin, (req, res) => {
       if (cnt <= 1) return res.status(400).json({ error: 'Cannot demote the last admin' });
     }
 
+    const oldRole = user.role;
     updateUserRole.run(role, userId);
     const updated = getUserById.get(userId);
+    logActivity(req.user.user_id, 'change_role', `${req.user.username} changed ${user.username} role ${oldRole} → ${role}`);
     res.json({ ok: true, username: updated.username, role: updated.role });
   } catch (err) {
     res.status(500).json({ error: 'Failed to update user' });
@@ -853,6 +908,7 @@ app.delete('/admin/users/:id', requireAuth, requireAdmin, (req, res) => {
 
     const username = user.username;
     deleteUser.run(userId);
+    logActivity(req.user.user_id, 'delete_user', `${req.user.username} deleted user ${username}`);
     res.json({ ok: true, username });
   } catch (err) {
     res.status(500).json({ error: 'Failed to delete user' });
@@ -865,6 +921,7 @@ app.post('/admin/topup', requireAuth, requireAdmin, (req, res) => {
   try {
     const amount = parseInt(req.body?.amount) || 50;
     const result = topUpUsersPrepared.run(amount);
+    logActivity(req.user.user_id, 'topup', `${req.user.username} topped up ${result.changes} users with ${amount} tokens`);
     res.json({ ok: true, users_updated: result.changes });
   } catch (err) {
     res.status(500).json({ error: 'Failed to top up users' });
@@ -879,6 +936,7 @@ app.post('/admin/grant-tokens', requireAuth, requireAdmin, (req, res) => {
     const user = getUserByUsername.get(username);
     if (!user) return res.status(404).json({ error: 'User not found' });
     updateUserTokens.run(user.tokens + amount, user.id);
+    logActivity(req.user.user_id, 'grant_tokens', `${req.user.username} granted ${amount} tokens to ${username}`);
     res.json({ ok: true, new_balance: user.tokens + amount });
   } catch (err) {
     res.status(500).json({ error: 'Failed to grant tokens' });
@@ -886,9 +944,10 @@ app.post('/admin/grant-tokens', requireAuth, requireAdmin, (req, res) => {
 });
 
 // --- Backup Endpoints ---
-app.post('/admin/backup', requireAuth, requireAdmin, (_req, res) => {
+app.post('/admin/backup', requireAuth, requireAdmin, (req, res) => {
   try {
     const info = backupDatabase('manual');
+    logActivity(req.user.user_id, 'backup', `${req.user.username} created backup: ${info.filename}`);
     res.json({ ok: true, ...info });
   } catch (err) {
     res.status(500).json({ error: 'Backup failed: ' + err.message });
@@ -900,6 +959,46 @@ app.get('/admin/backup', requireAuth, requireAdmin, (_req, res) => {
     res.json({ backups: listBackups() });
   } catch (err) {
     res.status(500).json({ error: 'Failed to list backups' });
+  }
+});
+
+// --- Admin: Activity Log Endpoint ---
+app.get('/admin/activity-log', requireAuth, requireAdmin, (req, res) => {
+  try {
+    const limit = Math.min(parseInt(req.query.limit) || 100, 500);
+    const offset = parseInt(req.query.offset) || 0;
+    const action = req.query.action || '';
+
+    let query = `
+      SELECT al.*, u.username AS actor
+      FROM activity_log al
+      LEFT JOIN users u ON al.user_id = u.id
+    `;
+    const params = [];
+    if (action) {
+      query += ' WHERE al.action = ?';
+      params.push(action);
+    }
+    query += ' ORDER BY al.created_at DESC LIMIT ? OFFSET ?';
+    params.push(limit, offset);
+
+    const logs = db.prepare(query).all(...params);
+
+    // Get total count for pagination
+    let countQuery = 'SELECT COUNT(*) AS cnt FROM activity_log';
+    const countParams = [];
+    if (action) {
+      countQuery += ' WHERE action = ?';
+      countParams.push(action);
+    }
+    const total = db.prepare(countQuery).get(...countParams).cnt;
+
+    // Get available actions for filter dropdown
+    const actions = db.prepare('SELECT DISTINCT action FROM activity_log ORDER BY action').all();
+
+    res.json({ logs, total, actions: actions.map(a => a.action) });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch activity log' });
   }
 });
 
@@ -944,6 +1043,7 @@ app.post('/admin/bets/:id/refund', requireAuth, requireAdmin, (req, res) => {
     // Delete the bet
     deleteBet.run(betId);
 
+    logActivity(req.user.user_id, 'refund_bet', `${req.user.username} refunded ${bet.amount} tokens to ${user.username} on market #${bet.market_id}`);
     res.json({ ok: true, refunded: bet.amount, username: user.username });
   } catch (err) {
     res.status(500).json({ error: 'Failed to refund bet' });
@@ -1034,6 +1134,7 @@ app.post('/admin/markets/:id/refund-and-delete', requireAuth, requireAdmin, (req
     // Delete the market (CASCADE will delete all bets)
     deleteMarket.run(marketId);
 
+    logActivity(req.user.user_id, 'refund_and_delete', `${req.user.username} refunded ${refundedCount} bets and deleted market: ${market.title}`);
     res.json({ ok: true, refunded_count: refundedCount, title: market.title });
   } catch (err) {
     res.status(500).json({ error: 'Failed to refund and delete market' });

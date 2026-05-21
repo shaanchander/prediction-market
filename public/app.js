@@ -1543,6 +1543,7 @@ function navigateTo(page) {
     loadAdminStats();
     loadBackupStatus();
     loadAdminMarketSelect();
+    loadActivityLog();
   }
 }
 
@@ -1615,6 +1616,113 @@ async function init() {
     }
   }
 }
+
+// --- Activity Log ---
+let activityLogOffset = 0;
+const ACTIVITY_LOG_LIMIT = 50;
+
+async function loadActivityLog(refresh = false) {
+  if (refresh) activityLogOffset = 0;
+  try {
+    const action = $('#activity-log-filter')?.value || '';
+    const params = new URLSearchParams({ limit: ACTIVITY_LOG_LIMIT, offset: activityLogOffset });
+    if (action) params.set('action', action);
+    const data = await api(`/admin/activity-log?${params}`);
+
+    renderActivityLog(data.logs, refresh);
+
+    // Populate filter dropdown
+    const filterSelect = $('#activity-log-filter');
+    if (filterSelect && data.actions) {
+      const currentVal = filterSelect.value;
+      filterSelect.innerHTML = '<option value="">All actions</option>';
+      data.actions.forEach(a => {
+        const opt = document.createElement('option');
+        opt.value = a;
+        opt.textContent = formatActionLabel(a);
+        filterSelect.appendChild(opt);
+      });
+      filterSelect.value = currentVal;
+    }
+
+    // Show/hide load more button
+    const loadMoreContainer = $('#activity-log-load-more-container');
+    if (data.logs.length >= ACTIVITY_LOG_LIMIT && activityLogOffset + ACTIVITY_LOG_LIMIT < data.total) {
+      show(loadMoreContainer);
+    } else {
+      hide(loadMoreContainer);
+    }
+  } catch (err) {
+    console.error('Failed to load activity log:', err);
+  }
+}
+
+function formatActionLabel(action) {
+  const labels = {
+    login: 'Login',
+    set_password: 'Set Password',
+    create_market: 'Create Market',
+    edit_market: 'Edit Market',
+    delete_market: 'Delete Market',
+    place_bet: 'Place Bet',
+    resolve_market: 'Resolve Market',
+    create_user: 'Create User',
+    reset_password: 'Reset Password',
+    change_role: 'Change Role',
+    delete_user: 'Delete User',
+    topup: 'Top Up',
+    grant_tokens: 'Grant Tokens',
+    backup: 'Backup',
+    refund_bet: 'Refund Bet',
+    refund_and_delete: 'Refund & Delete'
+  };
+  return labels[action] || action.replace(/_/g, ' ');
+}
+
+function renderActivityLog(logs, prepend = false) {
+  const container = $('#activity-log-list');
+  if (!container) return;
+
+  const html = logs.map(log => {
+    const actionLabel = formatActionLabel(log.action);
+    const actionColor = getActionColor(log.action);
+    const time = timeAgo(log.created_at);
+    const actor = log.actor || `User #${log.user_id}`;
+    return `
+      <div class="activity-log-entry">
+        <span class="activity-log-time">${time}</span>
+        <span class="activity-log-action" style="color:${actionColor}">${actionLabel}</span>
+        <span class="activity-log-actor">${esc(actor)}</span>
+        <span class="activity-log-details">${esc(log.details || '')}</span>
+      </div>
+    `;
+  }).join('');
+
+  if (prepend) {
+    container.innerHTML = html;
+  } else {
+    container.innerHTML += html;
+  }
+
+  if (!prepend && !logs.length && activityLogOffset === 0) {
+    container.innerHTML = '<div class="voter-empty">No activity logged yet</div>';
+  }
+}
+
+function getActionColor(action) {
+  if (['login', 'set_password', 'create_user'].includes(action)) return 'var(--success)';
+  if (['delete_user', 'delete_market', 'refund_and_delete'].includes(action)) return 'var(--danger)';
+  if (['resolve_market', 'change_role', 'reset_password'].includes(action)) return 'var(--warning)';
+  if (['topup', 'grant_tokens'].includes(action)) return 'var(--primary)';
+  return 'var(--text-dim)';
+}
+
+$('#activity-log-refresh-btn')?.addEventListener('click', () => loadActivityLog(true));
+$('#activity-log-filter')?.addEventListener('change', () => loadActivityLog(true));
+$('#activity-log-load-more-btn')?.addEventListener('click', () => {
+  activityLogOffset += ACTIVITY_LOG_LIMIT;
+  loadActivityLog();
+});
 
 // Prevent iOS Safari from loading page scrolled down
 if ('scrollRestoration' in history) {

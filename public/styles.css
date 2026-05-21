@@ -1917,3 +1917,80 @@ header {
     grid-template-columns: repeat(2, 1fr);
   }
 }
+
+/* --- Activity Log --- */
+.activity-log-container {
+  max-height: 400px;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  margin-top: 0.5rem;
+}
+
+.activity-log-list {
+  padding: 0;
+}
+
+.activity-log-entry {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 0.6rem 1rem;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.85rem;
+  line-height: 1.4;
+}
+
+.activity-log-entry:last-child {
+  border-bottom: none;
+}
+
+.activity-log-time {
+  flex-shrink: 0;
+  color: var(--text-dim);
+  font-size: 0.75rem;
+  min-width: 60px;
+  font-variant-numeric: tabular-nums;
+}
+
+.activity-log-action {
+  flex-shrink: 0;
+  font-weight: 600;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  min-width: 90px;
+  letter-spacing: 0.03em;
+}
+
+.activity-log-actor {
+  flex-shrink: 0;
+  font-weight: 500;
+  min-width: 80px;
+}
+
+.activity-log-details {
+  flex: 1;
+  color: var(--text-dim);
+}
+
+.activity-log-load-more {
+  margin-top: 0.5rem;
+  text-align: center;
+}
+
+@media (max-width: 640px) {
+  .activity-log-entry {
+    flex-direction: column;
+    gap: 0.25rem;
+    padding: 0.75rem 0.75rem;
+  }
+  .activity-log-time {
+    min-width: auto;
+  }
+  .activity-log-action {
+    min-width: auto;
+  }
+  .activity-log-actor {
+    min-width: auto;
+  }
+}

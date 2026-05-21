@@ -235,6 +235,23 @@
         <button type="submit" class="btn btn-primary">Grant Tokens</button>
         <div class="form-msg" id="grant-tokens-msg"></div>
       </form>
+
+      <hr class="admin-divider" />
+
+      <h3 class="admin-section-title">Activity Log</h3>
+      <p class="admin-hint">All tracked actions across the system.</p>
+      <div class="admin-hint-row">
+        <select id="activity-log-filter">
+          <option value="">All actions</option>
+        </select>
+        <button id="activity-log-refresh-btn" class="btn btn-sm btn-outline">Refresh</button>
+      </div>
+      <div id="activity-log-container" class="activity-log-container">
+        <div id="activity-log-list" class="activity-log-list"></div>
+      </div>
+      <div id="activity-log-load-more-container" class="activity-log-load-more hidden">
+        <button id="activity-log-load-more-btn" class="btn btn-sm btn-outline">Load More</button>
+      </div>
       </div>
     </section>
 
