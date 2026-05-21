@@ -11,7 +11,7 @@ npm start
 
 Server runs at `http://localhost:3000`. Database auto-initializes as `data.db` in the project root.
 
-Copy `.env.example` to `.env` and set your own secrets. Default admin username is `admin`. Public registration is disabled — only admins create users.
+Copy `.env.example` to `.env` and set your own secrets. Default admin username is `admin`. Admin password is set via `ADMIN_PASSWORD` in `.env` (for testing, read from `.env` rather than guessing). Public registration is disabled — only admins create users.
 
 ## Architecture
 
