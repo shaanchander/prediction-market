@@ -709,39 +709,37 @@ function renderMarkets(markets, emptyIcon = '📊', emptyText = 'No active marke
           </div>
         </div>
         ${m.description ? `<div class="market-desc">${esc(m.description)}</div>` : ''}
+        <div class="market-probability-row">
+          <div class="market-probability-bar-wrap">
+            <div class="market-probability-bar">
+              <div class="market-probability-bar-yes" style="width:${yesPct(m)}%"></div>
+            </div>
+            <div class="market-probability-labels">
+              <span class="prob-label prob-yes">Yes ${yesPct(m)}%</span>
+              <span class="prob-label prob-no">No ${noPct(m)}%</span>
+            </div>
+          </div>
+          <div class="market-pools-compact">
+            <span class="pool-compact pool-yes-compact">🟢 ${m.yes_pool}</span>
+            <span class="pool-compact pool-no-compact">🔴 ${m.no_pool}</span>
+          </div>
+        </div>
         <div class="market-meta">
           <span class="creator-icon">${esc(m.creator_username[0].toUpperCase())}</span>
-          <span class="creator-label">Created by</span>
           <span class="creator-name clickable-username" data-username="${esc(m.creator_username)}">${esc(m.creator_username)}</span>
           <span class="market-meta-spacer"></span>
           <span class="market-time">${timeAgoLabel}</span>
         </div>
-        <div class="probability-bar">
-          <div class="probability-bar-yes" style="width:${yesPct(m)}%"></div>
-          <div class="probability-bar-no"></div>
-        </div>
-        <div class="probability-labels">
-          <span class="prob-label prob-yes">Yes ${yesPct(m)}%</span>
-          <span class="prob-label prob-no">No ${noPct(m)}%</span>
-        </div>
-        <div class="pools">
-          <div class="pool pool-yes">
-            <span class="pool-label">Yes Pool</span>
-            <span class="pool-amount">${m.yes_pool}</span>
-          </div>
-          <div class="pool pool-no">
-            <span class="pool-label">No Pool</span>
-            <span class="pool-amount">${m.no_pool}</span>
-          </div>
+        <div class="market-card-body">
+          ${renderUserPosition(m.id)}
+          ${renderMarketActions(m)}
+          ${betSection}
+          ${resolveSection}
         </div>
         <div class="voters-section">
           <button class="voters-toggle" onclick="toggleVoters(${m.id}, this)">👥 See voters${m.bet_count > 0 ? ` (${m.bet_count})` : ''}</button>
           <div class="voters-content" id="voters-${m.id}"></div>
         </div>
-        ${renderUserPosition(m.id)}
-        ${renderMarketActions(m)}
-        ${betSection}
-        ${resolveSection}
       </div>`;
   }).join('');
 }
@@ -1460,36 +1458,34 @@ function renderMarketsLegacy(markets, emptyText = 'No resolved markets yet') {
           </div>
         </div>
         ${m.description ? `<div class="market-desc">${esc(m.description)}</div>` : ''}
+        <div class="market-probability-row">
+          <div class="market-probability-bar-wrap">
+            <div class="market-probability-bar">
+              <div class="market-probability-bar-yes" style="width:${yesPct(m)}%"></div>
+            </div>
+            <div class="market-probability-labels">
+              <span class="prob-label prob-yes">Yes ${yesPct(m)}%</span>
+              <span class="prob-label prob-no">No ${noPct(m)}%</span>
+            </div>
+          </div>
+          <div class="market-pools-compact">
+            <span class="pool-compact pool-yes-compact">🟢 ${m.yes_pool}</span>
+            <span class="pool-compact pool-no-compact">🔴 ${m.no_pool}</span>
+          </div>
+        </div>
         <div class="market-meta">
           <span class="creator-icon">${esc(m.creator_username[0].toUpperCase())}</span>
-          <span class="creator-label">Created by</span>
           <span class="creator-name clickable-username" data-username="${esc(m.creator_username)}">${esc(m.creator_username)}</span>
           <span class="market-meta-spacer"></span>
           <span class="market-time">${timeAgoLabel}</span>
         </div>
-        <div class="probability-bar">
-          <div class="probability-bar-yes" style="width:${yesPct(m)}%"></div>
-          <div class="probability-bar-no"></div>
-        </div>
-        <div class="probability-labels">
-          <span class="prob-label prob-yes">Yes ${yesPct(m)}%</span>
-          <span class="prob-label prob-no">No ${noPct(m)}%</span>
-        </div>
-        <div class="pools">
-          <div class="pool pool-yes">
-            <span class="pool-label">Yes Pool</span>
-            <span class="pool-amount">${m.yes_pool}</span>
-          </div>
-          <div class="pool pool-no">
-            <span class="pool-label">No Pool</span>
-            <span class="pool-amount">${m.no_pool}</span>
-          </div>
+        <div class="market-card-body">
+          ${renderMarketActions(m)}
         </div>
         <div class="voters-section">
           <button class="voters-toggle" onclick="toggleVoters(${m.id}, this)">👥 See voters</button>
           <div class="voters-content" id="voters-${m.id}"></div>
         </div>
-        ${renderMarketActions(m)}
       </div>`;
   }).join('');
 }
@@ -1569,7 +1565,17 @@ function onAuth() {
 
   navigateTo('markets');
   startPolling();
+
+  // Show onboarding for first-time users
+  if (!localStorage.getItem('pm_onboarded')) {
+    setTimeout(() => show($('#onboarding-modal')), 500);
+  }
 }
+
+$('#onboarding-close-btn').addEventListener('click', () => {
+  hide($('#onboarding-modal'));
+  localStorage.setItem('pm_onboarded', '1');
+});
 
 function onLogout() {
   stopPolling();

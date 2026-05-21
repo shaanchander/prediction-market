@@ -356,7 +356,7 @@ header {
 }
 .card-header h2 { margin-bottom: 0; }
 
-/* Probability Bar */
+/* Probability Bar (legacy, kept for voter panels) */
 .probability-bar {
   height: 6px;
   border-radius: 3px;
@@ -389,6 +389,50 @@ header {
 }
 .prob-yes { color: var(--yes); }
 .prob-no { color: var(--no); }
+
+/* Market Probability Row — integrated bar + compact pools */
+.market-probability-row {
+  margin-bottom: 0.75rem;
+}
+.market-probability-bar-wrap {
+  margin-bottom: 0.4rem;
+}
+.market-probability-bar {
+  height: 8px;
+  border-radius: 4px;
+  overflow: hidden;
+  background: rgba(225, 112, 85, 0.2);
+}
+.market-probability-bar-yes {
+  height: 100%;
+  background: linear-gradient(90deg, var(--yes), #55efc4);
+  border-radius: 4px;
+  transition: width 0.4s ease;
+}
+.market-probability-labels {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 0.3rem;
+}
+.market-pools-compact {
+  display: flex;
+  gap: 1rem;
+  margin-top: 0.3rem;
+}
+.pool-compact {
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+.pool-yes-compact { color: var(--yes); }
+.pool-no-compact { color: var(--no); }
+
+/* Market Card Body — bet section wrapper */
+.market-card-body {
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--border);
+  margin-top: 0.5rem;
+  margin-bottom: 0.5rem;
+}
 
 /* Auth Form Polish */
 .auth-icon {
@@ -1035,6 +1079,51 @@ header {
 .lt-name { font-weight: 600; }
 .lt-stat { font-weight: 600; text-align: right; }
 .lt-stat:first-of-type { text-align: right; }
+
+/* Onboarding Modal */
+.onboarding-modal-box {
+  max-width: 420px;
+  text-align: center;
+}
+.onboarding-icon {
+  font-size: 3rem;
+  margin-bottom: 0.5rem;
+}
+.onboarding-modal-box h3 {
+  margin-bottom: 1.25rem;
+  font-size: 1.2rem;
+}
+.onboarding-steps {
+  text-align: left;
+  margin-bottom: 1.25rem;
+}
+.onboarding-step {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+.step-num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--primary-glow);
+  color: var(--primary);
+  font-size: 0.8rem;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+.step-text {
+  font-size: 0.85rem;
+  color: var(--text-dim);
+  line-height: 1.4;
+}
+.step-text strong {
+  color: var(--text);
+}
 
 /* Set Password Form */
 .set-password-welcome {
