@@ -890,6 +890,36 @@ header {
 .stat-value { font-size: 1.25rem; font-weight: 700; color: var(--primary); }
 .stat-label { font-size: 0.7rem; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.05em; }
 
+/* Admin Users Toolbar */
+.admin-users-toolbar {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+  align-items: center;
+}
+.admin-users-toolbar .search-input {
+  flex: 1;
+  padding: 0.45rem 0.75rem;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+  font-size: 0.85rem;
+  outline: none;
+}
+.admin-users-toolbar .search-input:focus { border-color: var(--primary); }
+.admin-users-toolbar select {
+  padding: 0.45rem 0.75rem;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+  font-size: 0.85rem;
+  outline: none;
+  cursor: pointer;
+}
+.admin-users-toolbar select:focus { border-color: var(--primary); }
+
 /* Backup Status */
 .backup-status {
   margin-top: 0.5rem;

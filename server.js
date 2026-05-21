@@ -278,7 +278,6 @@ const getUserBets = db.prepare(`
 `);
 
 const getAllUsers = db.prepare('SELECT id, username, role, tokens, must_set_password FROM users ORDER BY id');
-const topUpUsers = db.prepare("UPDATE users SET tokens = tokens + 50 WHERE role = 'user'");
 
 const getStats = db.prepare(`
   SELECT 
@@ -860,12 +859,29 @@ app.delete('/admin/users/:id', requireAuth, requireAdmin, (req, res) => {
   }
 });
 
-app.post('/admin/topup', requireAuth, requireAdmin, (_req, res) => {
+const topUpUsersPrepared = db.prepare("UPDATE users SET tokens = tokens + ? WHERE role = 'user'");
+
+app.post('/admin/topup', requireAuth, requireAdmin, (req, res) => {
   try {
-    const result = topUpUsers.run();
+    const amount = parseInt(req.body?.amount) || 50;
+    const result = topUpUsersPrepared.run(amount);
     res.json({ ok: true, users_updated: result.changes });
   } catch (err) {
     res.status(500).json({ error: 'Failed to top up users' });
+  }
+});
+
+// --- Admin: Grant Tokens to Specific User ---
+app.post('/admin/grant-tokens', requireAuth, requireAdmin, (req, res) => {
+  try {
+    const { username, amount } = req.body;
+    if (!username || !amount || amount <= 0) return res.status(400).json({ error: 'Username and valid amount required' });
+    const user = getUserByUsername.get(username);
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    updateUserTokens.run(user.tokens + amount, user.id);
+    res.json({ ok: true, new_balance: user.tokens + amount });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to grant tokens' });
   }
 });
 

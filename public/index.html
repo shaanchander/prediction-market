@@ -156,7 +156,7 @@
         <h2>Admin</h2>
         <div id="admin-stats" class="admin-stats"></div>
         <div class="admin-actions">
-          <button id="topup-btn" class="btn btn-warning">Top Up All Users (+50 tokens)</button>
+          <button id="topup-btn" class="btn btn-warning">Top Up All Users</button>
           <button id="backup-btn" class="btn btn-primary">Backup Database</button>
         </div>
         <div class="form-msg" id="admin-msg"></div>
@@ -201,12 +201,38 @@
       </div>
 
       <h3 class="admin-section-title">Users</h3>
+      <div class="admin-users-toolbar">
+        <input type="text" id="admin-user-search" class="search-input" placeholder="Search users..." />
+        <select id="admin-user-sort">
+          <option value="tokens-desc">Tokens ↓</option>
+          <option value="tokens-asc">Tokens ↑</option>
+          <option value="name-asc">Name A-Z</option>
+          <option value="name-desc">Name Z-A</option>
+        </select>
+      </div>
       <table id="users-table" class="data-table">
         <thead>
           <tr><th>ID</th><th>Username</th><th>Role</th><th>Tokens</th><th>Status</th><th>Actions</th></tr>
         </thead>
         <tbody></tbody>
       </table>
+
+      <h3 class="admin-section-title">Grant Tokens</h3>
+      <p class="admin-hint">Give a specific user a custom amount of tokens.</p>
+      <form id="grant-tokens-form">
+        <div class="form-row">
+          <div class="form-group">
+            <label for="grant-username">Username</label>
+            <input type="text" id="grant-username" required placeholder="Username" />
+          </div>
+          <div class="form-group">
+            <label for="grant-amount">Amount</label>
+            <input type="number" id="grant-amount" required min="1" placeholder="Tokens" />
+          </div>
+        </div>
+        <button type="submit" class="btn btn-primary">Grant Tokens</button>
+        <div class="form-msg" id="grant-tokens-msg"></div>
+      </form>
       </div>
     </section>
 

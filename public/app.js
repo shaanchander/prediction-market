@@ -374,15 +374,85 @@ $('#market-form').addEventListener('submit', async (e) => {
 
 // --- Admin Top Up ---
 $('#topup-btn').addEventListener('click', async () => {
+  const amount = await showPromptModal('Top Up All Users', 'Token amount:', '50');
+  if (amount === null) return;
+  const parsed = parseInt(amount);
+  if (!parsed || parsed <= 0) return flashMsg($('#admin-msg'), 'Enter a valid amount');
   try {
-    const data = await api('/admin/topup', { method: 'POST' });
-    flashMsg($('#admin-msg'), `Topped up ${data.users_updated} users.`, 'success');
+    const data = await api('/admin/topup', { method: 'POST', body: JSON.stringify({ amount: parsed }) });
+    flashMsg($('#admin-msg'), `Topped up ${data.users_updated} users with ${parsed} tokens each.`, 'success');
     loadAdminUsers();
     loadAdminStats();
   } catch (err) {
     flashMsg($('#admin-msg'), err.message);
   }
 });
+
+// --- Admin Grant Tokens ---
+$('#grant-tokens-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const username = $('#grant-username').value.trim();
+  const amount = parseInt($('#grant-amount').value);
+  if (!username || !amount || amount <= 0) {
+    return flashMsg($('#grant-tokens-msg'), 'Enter a valid username and amount');
+  }
+  try {
+    const data = await api('/admin/grant-tokens', { method: 'POST', body: JSON.stringify({ username, amount }) });
+    flashMsg($('#grant-tokens-msg'), `Granted ${amount} tokens to "${esc(username)}". New balance: ${data.new_balance}.`, 'success');
+    $('#grant-tokens-form').reset();
+    loadAdminUsers();
+    loadAdminStats();
+  } catch (err) {
+    flashMsg($('#grant-tokens-msg'), err.message);
+  }
+});
+
+// --- Admin User Search & Sort ---
+let adminUsersData = [];
+let adminUserSearchDebounce = null;
+
+$('#admin-user-search')?.addEventListener('input', () => {
+  clearTimeout(adminUserSearchDebounce);
+  adminUserSearchDebounce = setTimeout(renderAdminUsersTable, 200);
+});
+$('#admin-user-sort')?.addEventListener('change', renderAdminUsersTable);
+
+function renderAdminUsersTable() {
+  const search = ($('#admin-user-search')?.value || '').trim().toLowerCase();
+  const sort = $('#admin-user-sort')?.value || 'tokens-desc';
+
+  let filtered = adminUsersData.filter(u => u.username.toLowerCase().includes(search));
+
+  filtered.sort((a, b) => {
+    if (sort === 'tokens-desc') return b.tokens - a.tokens;
+    if (sort === 'tokens-asc') return a.tokens - b.tokens;
+    if (sort === 'name-asc') return a.username.localeCompare(b.username);
+    return b.username.localeCompare(a.username);
+  });
+
+  const tbody = $('#users-table tbody');
+  tbody.innerHTML = filtered.map((u) => {
+    const statusBadge = u.must_set_password === 1
+      ? '<span class="status-badge status-pending">⏳ Needs setup</span>'
+      : '<span class="status-badge status-active">✓ Active</span>';
+
+    const newRole = u.role === 'admin' ? 'user' : 'admin';
+    const roleLabel = u.role === 'admin' ? 'Make User' : 'Make Admin';
+
+    return `<tr>
+      <td data-label="ID">${u.id}</td>
+      <td data-label="Username">${esc(u.username)}</td>
+      <td data-label="Role">${u.role}</td>
+      <td data-label="Tokens">${u.tokens}</td>
+      <td data-label="Status">${statusBadge}</td>
+      <td class="actions-cell" data-label="Actions">
+        <button class="btn btn-sm btn-outline action-btn admin-reset-pw-btn" data-user-id="${u.id}" data-user-name="${esc(u.username)}" title="Reset password">Reset PW</button>
+        <button class="btn btn-sm btn-outline action-btn admin-change-role-btn" data-user-id="${u.id}" data-new-role="${newRole}" data-role-label="${esc(roleLabel)}" title="${esc(roleLabel)}">${roleLabel}</button>
+        <button class="btn btn-sm btn-outline action-btn btn-danger-outline admin-delete-user-btn" data-user-id="${u.id}" data-user-name="${esc(u.username)}" title="Delete user">Delete</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
 
 // --- Admin Create User ---
 $('#create-user-form').addEventListener('submit', async (e) => {
@@ -1051,29 +1121,8 @@ async function loadBetHistory() {
 
 async function loadAdminUsers() {
   try {
-    const users = await api('/admin/users');
-    const tbody = $('#users-table tbody');
-    tbody.innerHTML = users.map((u) => {
-      const statusBadge = u.must_set_password === 1
-        ? '<span class="status-badge status-pending">⏳ Needs setup</span>'
-        : '<span class="status-badge status-active">✓ Active</span>';
-
-      const newRole = u.role === 'admin' ? 'user' : 'admin';
-      const roleLabel = u.role === 'admin' ? 'Make User' : 'Make Admin';
-
-      return `<tr>
-        <td data-label="ID">${u.id}</td>
-        <td data-label="Username">${esc(u.username)}</td>
-        <td data-label="Role">${u.role}</td>
-        <td data-label="Tokens">${u.tokens}</td>
-        <td data-label="Status">${statusBadge}</td>
-        <td class="actions-cell" data-label="Actions">
-          <button class="btn btn-sm btn-outline action-btn admin-reset-pw-btn" data-user-id="${u.id}" data-user-name="${esc(u.username)}" title="Reset password">Reset PW</button>
-          <button class="btn btn-sm btn-outline action-btn admin-change-role-btn" data-user-id="${u.id}" data-new-role="${newRole}" data-role-label="${esc(roleLabel)}" title="${esc(roleLabel)}">${roleLabel}</button>
-          <button class="btn btn-sm btn-outline action-btn btn-danger-outline admin-delete-user-btn" data-user-id="${u.id}" data-user-name="${esc(u.username)}" title="Delete user">Delete</button>
-        </td>
-      </tr>`;
-    }).join('');
+    adminUsersData = await api('/admin/users');
+    renderAdminUsersTable();
   } catch (err) {
     console.error('Failed to load users:', err);
   }
