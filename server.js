@@ -17,7 +17,7 @@ const fs = require('fs');
 
 // --- Database Backup ---
 const BACKUP_DIR = path.join(__dirname, 'backups');
-const BACKUP_RETENTION_DAYS = 7; // Delete backups older than N days
+const BACKUP_RETENTION_COUNT = 7; // Keep the most recent N backups
 const BACKUP_INTERVAL_MS = 24 * 60 * 60 * 1000; // Daily
 
 function ensureBackupDir() {
@@ -34,7 +34,7 @@ function backupDatabase(label = 'manual') {
   db.pragma('wal_checkpoint(TRUNCATE)');
   fs.copyFileSync(DB_PATH, backupPath);
 
-  // Cleanup backups older than BACKUP_RETENTION_DAYS
+  // Cleanup: keep only the most recent BACKUP_RETENTION_COUNT backups
   cleanupOldBackups();
 
   const size = fs.statSync(backupPath).size;
@@ -44,16 +44,14 @@ function backupDatabase(label = 'manual') {
 
 function cleanupOldBackups() {
   if (!fs.existsSync(BACKUP_DIR)) return;
-  const cutoff = new Date(Date.now() - BACKUP_RETENTION_DAYS * 24 * 60 * 60 * 1000);
   const files = fs.readdirSync(BACKUP_DIR)
     .filter(f => f.startsWith('backup_') && f.endsWith('.db'))
-    .map(f => ({ name: f, mtime: fs.statSync(path.join(BACKUP_DIR, f)).mtime }));
+    .map(f => ({ name: f, mtime: fs.statSync(path.join(BACKUP_DIR, f)).mtime }))
+    .sort((a, b) => b.mtime - a.mtime); // newest first
 
-  for (const f of files) {
-    if (f.mtime < cutoff) {
-      fs.unlinkSync(path.join(BACKUP_DIR, f.name));
-      console.log(`Removed old backup: ${f.name}`);
-    }
+  for (const f of files.slice(BACKUP_RETENTION_COUNT)) {
+    fs.unlinkSync(path.join(BACKUP_DIR, f.name));
+    console.log(`Removed old backup: ${f.name}`);
   }
 }
 
@@ -81,7 +79,7 @@ ensureBackupDir();
 setInterval(() => {
   try { backupDatabase('auto'); } catch (err) { console.error('Backup failed:', err.message); }
 }, BACKUP_INTERVAL_MS);
-console.log(`Auto-backup enabled: daily, retaining ${BACKUP_RETENTION_DAYS} days`);
+console.log(`Auto-backup enabled: daily, retaining ${BACKUP_RETENTION_COUNT} most recent`);
 
 // --- Middleware ---
 app.use(helmet({
