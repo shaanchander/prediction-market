@@ -967,6 +967,7 @@ app.get('/admin/activity-log', requireAuth, requireAdmin, (req, res) => {
     const limit = Math.min(parseInt(req.query.limit) || 100, 500);
     const offset = parseInt(req.query.offset) || 0;
     const action = req.query.action || '';
+    const search = req.query.search || '';
 
     let query = `
       SELECT al.*, u.username AS actor
@@ -974,10 +975,24 @@ app.get('/admin/activity-log', requireAuth, requireAdmin, (req, res) => {
       LEFT JOIN users u ON al.user_id = u.id
     `;
     const params = [];
+    const whereClauses = [];
+
     if (action) {
-      query += ' WHERE al.action = ?';
+      whereClauses.push('al.action = ?');
       params.push(action);
     }
+
+    if (search) {
+      const escaped = search.replace(/%/g, '\\%').replace(/_/g, '\\_');
+      const pattern = `%${escaped}%`;
+      whereClauses.push('(al.details LIKE ? OR u.username LIKE ?)');
+      params.push(pattern, pattern);
+    }
+
+    if (whereClauses.length > 0) {
+      query += ' WHERE ' + whereClauses.join(' AND ');
+    }
+
     query += ' ORDER BY al.created_at DESC LIMIT ? OFFSET ?';
     params.push(limit, offset);
 
@@ -986,10 +1001,24 @@ app.get('/admin/activity-log', requireAuth, requireAdmin, (req, res) => {
     // Get total count for pagination
     let countQuery = 'SELECT COUNT(*) AS cnt FROM activity_log';
     const countParams = [];
+    const countWhereClauses = [];
+
     if (action) {
-      countQuery += ' WHERE action = ?';
+      countWhereClauses.push('action = ?');
       countParams.push(action);
     }
+
+    if (search) {
+      const escaped = search.replace(/%/g, '\\%').replace(/_/g, '\\_');
+      const pattern = `%${escaped}%`;
+      countWhereClauses.push('(details LIKE ? OR EXISTS (SELECT 1 FROM users WHERE users.id = activity_log.user_id AND users.username LIKE ?))');
+      countParams.push(pattern, pattern);
+    }
+
+    if (countWhereClauses.length > 0) {
+      countQuery += ' WHERE ' + countWhereClauses.join(' AND ');
+    }
+
     const total = db.prepare(countQuery).get(...countParams).cnt;
 
     // Get available actions for filter dropdown

@@ -1629,8 +1629,10 @@ async function loadActivityLog(refresh = false) {
   if (refresh) activityLogOffset = 0;
   try {
     const action = $('#activity-log-filter')?.value || '';
+    const search = $('#activity-log-search')?.value || '';
     const params = new URLSearchParams({ limit: ACTIVITY_LOG_LIMIT, offset: activityLogOffset });
     if (action) params.set('action', action);
+    if (search) params.set('search', search);
     const data = await api(`/admin/activity-log?${params}`);
 
     renderActivityLog(data.logs, refresh);
@@ -1723,6 +1725,11 @@ function getActionColor(action) {
 
 $('#activity-log-refresh-btn')?.addEventListener('click', () => loadActivityLog(true));
 $('#activity-log-filter')?.addEventListener('change', () => loadActivityLog(true));
+let activityLogSearchDebounce = null;
+$('#activity-log-search')?.addEventListener('input', () => {
+  clearTimeout(activityLogSearchDebounce);
+  activityLogSearchDebounce = setTimeout(() => loadActivityLog(true), 300);
+});
 $('#activity-log-load-more-btn')?.addEventListener('click', () => {
   activityLogOffset += ACTIVITY_LOG_LIMIT;
   loadActivityLog();
