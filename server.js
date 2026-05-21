@@ -438,7 +438,8 @@ app.post('/api/set-password', authLimiter, (req, res) => {
   }
 });
 
-app.post('/api/logout', (_req, res) => {
+app.post('/api/logout', requireAuth, (req, res) => {
+  logActivity(req.user.user_id, 'logout', `${req.user.username} logged out`, req.ip);
   res.json({ ok: true });
 });
 
