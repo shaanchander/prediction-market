@@ -450,6 +450,10 @@ function renderAdminUsersTable() {
     const newRole = u.role === 'admin' ? 'user' : 'admin';
     const roleLabel = u.role === 'admin' ? 'Make User' : 'Make Admin';
 
+    const isSelf = currentUser && u.id === currentUser.id;
+    const deleteDisabled = isSelf ? 'disabled title="Cannot delete yourself"' : '';
+    const deleteClass = isSelf ? 'btn-disabled' : '';
+
     return `<tr>
       <td data-label="ID">${u.id}</td>
       <td data-label="Username">${esc(u.username)}</td>
@@ -459,7 +463,7 @@ function renderAdminUsersTable() {
       <td class="actions-cell" data-label="Actions">
         <button class="btn btn-sm btn-outline action-btn admin-reset-pw-btn" data-user-id="${u.id}" data-user-name="${esc(u.username)}" title="Reset password">Reset PW</button>
         <button class="btn btn-sm btn-outline action-btn admin-change-role-btn" data-user-id="${u.id}" data-new-role="${newRole}" data-role-label="${esc(roleLabel)}" title="${esc(roleLabel)}">${roleLabel}</button>
-        <button class="btn btn-sm btn-outline action-btn btn-danger-outline admin-delete-user-btn" data-user-id="${u.id}" data-user-name="${esc(u.username)}" title="Delete user">Delete</button>
+        <button class="btn btn-sm btn-outline action-btn btn-danger-outline ${deleteClass} admin-delete-user-btn" ${deleteDisabled} data-user-id="${u.id}" data-user-name="${esc(u.username)}">Delete</button>
       </td>
     </tr>`;
   }).join('');
