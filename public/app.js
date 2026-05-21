@@ -389,12 +389,23 @@ $('#topup-btn').addEventListener('click', async () => {
 });
 
 // --- Admin Grant Tokens ---
+function populateGrantUserSelect(users) {
+  const select = $('#grant-user-select');
+  select.innerHTML = '<option value="">— Select user —</option>';
+  users.forEach(u => {
+    const opt = document.createElement('option');
+    opt.value = u.username;
+    opt.textContent = `${esc(u.username)} (${u.tokens} tokens)`;
+    select.appendChild(opt);
+  });
+}
+
 $('#grant-tokens-form').addEventListener('submit', async (e) => {
   e.preventDefault();
-  const username = $('#grant-username').value.trim();
+  const username = $('#grant-user-select').value;
   const amount = parseInt($('#grant-amount').value);
   if (!username || !amount || amount <= 0) {
-    return flashMsg($('#grant-tokens-msg'), 'Enter a valid username and amount');
+    return flashMsg($('#grant-tokens-msg'), 'Select a user and enter a valid amount');
   }
   try {
     const data = await api('/admin/grant-tokens', { method: 'POST', body: JSON.stringify({ username, amount }) });
@@ -1121,6 +1132,7 @@ async function loadAdminUsers() {
   try {
     adminUsersData = await api('/admin/users');
     renderAdminUsersTable();
+    populateGrantUserSelect(adminUsersData);
   } catch (err) {
     console.error('Failed to load users:', err);
   }
