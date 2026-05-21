@@ -858,7 +858,7 @@ window.placeBet = async function (marketId, side) {
     currentUser.tokens = data.user.tokens;
     updateUserBar();
     loadMarkets();
-    showToast(`Bet placed: ${amount} tokens on ${side.toUpperCase()}`, 'success');
+    showToast(`✓ ${amount} on ${side.toUpperCase()} · Balance: ${data.user.tokens.toLocaleString()}`, 'success');
   } catch (err) {
     showToast(err.message);
   }
@@ -920,7 +920,7 @@ $('#bet-sheet-yes')?.addEventListener('click', async () => {
     currentUser.tokens = data.user.tokens;
     updateUserBar();
     loadMarkets();
-    showToast(`Bet placed: ${amount} tokens on YES`, 'success');
+    showToast(`✓ ${amount} on YES · Balance: ${data.user.tokens.toLocaleString()}`, 'success');
     closeBetSheet();
   } catch (err) {
     showToast(err.message);
@@ -935,7 +935,7 @@ $('#bet-sheet-no')?.addEventListener('click', async () => {
     currentUser.tokens = data.user.tokens;
     updateUserBar();
     loadMarkets();
-    showToast(`Bet placed: ${amount} tokens on NO`, 'success');
+    showToast(`✓ ${amount} on NO · Balance: ${data.user.tokens.toLocaleString()}`, 'success');
     closeBetSheet();
   } catch (err) {
     showToast(err.message);
