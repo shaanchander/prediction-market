@@ -1077,8 +1077,38 @@ header {
 .leaderboard-table-row.highlight { background: rgba(108, 92, 231, 0.08); }
 .lt-rank { font-size: 1.1rem; font-weight: 700; text-align: center; }
 .lt-name { font-weight: 600; }
+.lt-stats {
+  display: contents;
+}
 .lt-stat { font-weight: 600; text-align: right; }
-.lt-stat:first-of-type { text-align: right; }
+
+/* Mobile leaderboard — card layout */
+@media (max-width: 640px) {
+  .leaderboard-table-header { display: none; }
+  .leaderboard-table-row {
+    display: flex;
+    flex-direction: column;
+    padding: 0.85rem 1rem;
+    gap: 0.5rem;
+  }
+  .leaderboard-table-row .lt-rank {
+    font-size: 0.8rem;
+    text-align: left;
+  }
+  .leaderboard-table-row .lt-name {
+    font-size: 1rem;
+    margin-bottom: 0.15rem;
+  }
+  .leaderboard-table-row .lt-stats {
+    display: flex;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+  }
+  .leaderboard-table-row .lt-stats .lt-stat {
+    font-size: 0.8rem;
+    text-align: left;
+  }
+}
 
 /* Onboarding Modal */
 .onboarding-modal-box {

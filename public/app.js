@@ -1405,9 +1405,11 @@ function renderLeaderboardSorted() {
           <div class="leaderboard-table-row${highlight}">
             <span class="lt-rank">${rank}</span>
             <span class="lt-name">${esc(u.username)}${isCurrentUser ? ' (You)' : ''}</span>
-            <span class="lt-stat">${u.tokens}</span>
-            <span class="lt-stat ${wrClass}">${u.wins + u.losses > 0 ? u.winRate + '%' : '—'}</span>
-            <span class="lt-stat ${profitClass}">${profitStr}</span>
+            <span class="lt-stats">
+              <span class="lt-stat">${u.tokens} tokens</span>
+              <span class="lt-stat ${wrClass}">${u.wins + u.losses > 0 ? u.winRate + '%' : '—'}</span>
+              <span class="lt-stat ${profitClass}">${profitStr}</span>
+            </span>
           </div>`;
       }).join('')}
     </div>`;
