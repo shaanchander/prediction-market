@@ -1226,13 +1226,14 @@ window.adminRefundBet = async function (betId, username, amount) {
   try {
     await api(`/admin/bets/${betId}/refund`, { method: 'POST' });
     showToast(`Refunded ${amount} tokens to ${esc(username)}`, 'success');
-    // Reload bets
+    // Reload bets list and market dropdown
     const marketId = $('#admin-market-select').value;
     if (marketId) {
       const data = await api(`/admin/markets/${marketId}/bets`);
       renderAdminBets(data.bets, marketId);
     }
     loadAdminStats();
+    loadAdminMarketSelect();
   } catch (err) {
     showToast(err.message);
   }
