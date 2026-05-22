@@ -290,6 +290,9 @@ const resolveMarket = db.prepare(
 const getBetsByMarketAndSide = db.prepare(
   'SELECT * FROM bets WHERE market_id = ? AND side = ?'
 );
+const getUserBetsOnMarket = db.prepare(
+  'SELECT side, SUM(amount) AS total FROM bets WHERE user_id = ? AND market_id = ? GROUP BY side'
+);
 
 const getBetsForMarket = db.prepare(`
   SELECT b.amount, b.created_at, b.side, u.username
@@ -734,6 +737,13 @@ app.post('/api/bet', requireAuth, (req, res) => {
       const maxBet = Math.floor(currentUser.tokens * 0.2);
       if (betAmount > maxBet) throw new Error(`Maximum bet is ${maxBet} tokens (20% of balance)`);
 
+      // Prevent betting on both sides of the same market
+      const existingBets = getUserBetsOnMarket.all(currentUser.id, market_id);
+      const hasYes = existingBets.some(b => b.side === 'yes');
+      const hasNo = existingBets.some(b => b.side === 'no');
+      if (side === 'yes' && hasNo) throw new Error(`You already bet NO on this market. You can't bet on both sides.`);
+      if (side === 'no' && hasYes) throw new Error(`You already bet YES on this market. You can't bet on both sides.`);
+
       // Calculate tax (rounded up)
       const tax = Math.ceil(betAmount * BET_TAX_RATE);
       const totalCost = betAmount + tax;
@@ -765,6 +775,10 @@ app.post('/api/bet', requireAuth, (req, res) => {
       market: { yes_pool: updatedMarket.yes_pool, no_pool: updatedMarket.no_pool }
     });
   } catch (err) {
+    // Pass through user-facing validation errors, hide internal errors
+    if (err.message && (err.message.includes('already') || err.message.includes('Insufficient') || err.message.includes('Maximum bet'))) {
+      return res.status(400).json({ error: err.message });
+    }
     res.status(500).json({ error: 'Failed to place bet' });
   }
 });
