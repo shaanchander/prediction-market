@@ -523,6 +523,9 @@ header {
   font-weight: 700;
   color: var(--text);
   line-height: 1.35;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .market-desc {
   font-size: 0.85rem;
