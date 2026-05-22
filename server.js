@@ -124,6 +124,9 @@ const authLimiter = rateLimit({
   message: { error: 'Too many attempts, please try again later.' }
 });
 
+// Trust proxy so rate limiter reads X-Forwarded-For correctly
+app.set('trust proxy', 1);
+
 app.use('/api/', generalLimiter);
 app.use('/admin/', generalLimiter);
 
