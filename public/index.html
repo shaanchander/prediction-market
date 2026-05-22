@@ -113,6 +113,12 @@
               <input type="text" id="market-title" required placeholder="Will Bitcoin hit $150k by year end?" />
             </div>
             <div class="form-group">
+              <label for="market-category">Category (optional)</label>
+              <select id="market-category">
+                <option value="">No category</option>
+              </select>
+            </div>
+            <div class="form-group">
               <label for="market-desc">Description (optional)</label>
               <textarea id="market-desc" rows="2" placeholder="Add context or clarify the outcome..."></textarea>
             </div>
@@ -161,6 +167,28 @@
         </div>
         <div class="form-msg" id="admin-msg"></div>
         <div id="backup-status" class="backup-status"></div>
+
+        <hr class="admin-divider" />
+
+        <h3 class="admin-section-title">Categories</h3>
+        <p class="admin-hint">Organize markets into categories for easier browsing.</p>
+        <form id="create-category-form">
+          <div class="form-row">
+            <div class="form-group">
+              <label for="category-name">Category Name</label>
+              <input type="text" id="category-name" required minlength="1" maxlength="50" placeholder="e.g. Crypto, Sports, Politics" />
+            </div>
+            <div class="form-group">
+              <label for="category-color">Color</label>
+              <div class="color-picker-row">
+                <input type="color" id="category-color" value="#6c5ce7" />
+              </div>
+            </div>
+          </div>
+          <button type="submit" class="btn btn-primary">Create Category</button>
+          <div class="form-msg" id="create-category-msg"></div>
+        </form>
+        <div id="categories-list" class="categories-list"></div>
 
         <hr class="admin-divider" />
 
@@ -261,6 +289,9 @@
         <h2>Active Markets</h2>
         <div class="markets-filters">
           <input type="text" id="market-search" class="search-input" placeholder="Search markets..." />
+          <select id="market-category-filter">
+            <option value="">All categories</option>
+          </select>
           <select id="market-sort">
             <option value="newest">Newest first</option>
             <option value="oldest">Oldest first</option>

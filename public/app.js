@@ -3,6 +3,7 @@ let token = localStorage.getItem('pm_token');
 let currentUser = null;
 let currentPage = 'markets';
 let pendingUsername = null; // username waiting to set password
+let categoriesList = [];
 
 // --- Live Polling ---
 let pollingInterval = null;
@@ -399,8 +400,9 @@ $('#market-form').addEventListener('submit', async (e) => {
   const min_stake = parseInt($('#market-min').value) || 1;
   const max_stake = $('#market-max').value ? parseInt($('#market-max').value) : null;
   const expires_at = $('#market-expires').value || null;
+  const category_id = $('#market-category').value || null;
   try {
-    await api('/api/markets', { method: 'POST', body: JSON.stringify({ title, description, min_stake, max_stake, expires_at }) });
+    await api('/api/markets', { method: 'POST', body: JSON.stringify({ title, description, min_stake, max_stake, expires_at, category_id }) });
     showToast('Market created!', 'success');
     const overlay = $('#create-market-sheet-overlay');
     overlay.classList.remove('bet-sheet-open');
@@ -681,13 +683,34 @@ function renderMarketActions(m) {
   const expiresAtStr = m.expires_at ? new Date(m.expires_at * 1000).toISOString().slice(0, 16) : '';
   // Use data attributes instead of onclick to avoid XSS via inline handlers
   const pinLabel = m.is_pinned ? 'Unpin' : 'Pin';
+
+  // Category assignment dropdown (admin only)
+  let categorySelect = '';
+  if (isAdmin) {
+    categorySelect = `
+      <select class="btn btn-sm btn-outline market-category-select" data-market-id="${m.id}">
+        <option value="" ${!m.category_id ? 'selected' : ''}>No category</option>
+        ${categoriesList.map(c => `<option value="${c.id}" ${m.category_id === c.id ? 'selected' : ''}>${esc(c.name)}</option>`).join('')}
+      </select>`;
+  }
+
   return `
     <div class="market-actions">
       <button class="btn btn-sm btn-outline action-btn pin-market-btn" data-market-id="${m.id}" data-pinned="${m.is_pinned ? '1' : '0'}">📌 ${pinLabel}</button>
       <button class="btn btn-sm btn-outline action-btn edit-market-btn" data-market-id="${m.id}" data-market-title="${esc(m.title)}" data-market-desc="${esc(m.description)}" data-market-expires="${esc(expiresAtStr)}">Edit</button>
       <button class="btn btn-sm btn-outline action-btn btn-danger-outline delete-market-btn" data-market-id="${m.id}" data-market-title="${esc(m.title)}">Delete</button>
+      ${categorySelect}
     </div>`;
 }
+
+// --- Event delegation for market category select change ---
+document.addEventListener('change', (e) => {
+  if (e.target.classList.contains('market-category-select')) {
+    const marketId = parseInt(e.target.dataset.marketId);
+    const categoryId = e.target.value || null;
+    updateMarketCategory(marketId, categoryId);
+  }
+});
 
 // --- Event delegation for market action buttons ---
 document.addEventListener('click', (e) => {
@@ -709,6 +732,14 @@ document.addEventListener('click', (e) => {
     const title = e.target.dataset.marketTitle;
     deleteMarket(marketId, title);
   }
+  // Delete category button
+  if (e.target.classList.contains('delete-category-btn')) {
+    const categoryId = parseInt(e.target.dataset.categoryId);
+    const categoryName = e.target.dataset.categoryName;
+    deleteCategory(categoryId, categoryName);
+    return;
+  }
+
   // Clickable usernames
   if (e.target.classList.contains('clickable-username')) {
     const username = e.target.dataset.username;
@@ -793,11 +824,15 @@ function renderMarkets(markets, emptyIcon = '📊', emptyText = 'No active marke
     const timeAgoLabel = m.created_at ? timeAgo(m.created_at) : '';
 
     const pinIcon = m.is_pinned ? '<span class="pin-icon">📌</span> ' : '';
+    const categoryBadge = m.category_name
+      ? `<span class="category-badge" style="background:${m.category_color || '#6c5ce7'}22;color:${m.category_color || '#6c5ce7'};border-color:${m.category_color || '#6c5ce7'}44">${esc(m.category_name)}</span>`
+      : '';
     return `
       <div class="market-card" data-market-id="${m.id}">
         <div class="market-header">
           <span class="market-title">${pinIcon}${esc(m.title)}</span>
           <div class="market-header-right">
+            ${categoryBadge}
             ${betCountBadge}
             ${expiryBadge}
             ${badge}
@@ -1224,8 +1259,10 @@ async function loadMarkets() {
   try {
     const search = $('#market-search')?.value.trim() || '';
     const sort = $('#market-sort')?.value || 'newest';
+    const categoryId = $('#market-category-filter')?.value || '';
     const params = new URLSearchParams({ type: 'active' });
     if (search) params.set('search', search);
+    if (categoryId) params.set('category_id', categoryId);
     let markets = await api(`/api/markets?${params}`);
 
     // Client-side sorting
@@ -1233,7 +1270,8 @@ async function loadMarkets() {
     else if (sort === 'popular') markets.sort((a, b) => (b.bet_count || 0) - (a.bet_count || 0));
 
     await loadUserBetsMap();
-    renderMarkets(markets, '📊', search ? 'No markets match your search' : 'No active markets yet');
+    const emptyText = search ? 'No markets match your search' : 'No active markets yet';
+    renderMarkets(markets, '📊', emptyText);
   } catch (err) {
     if (!isNetworkError(err)) renderMarkets([]);
   }
@@ -1259,6 +1297,7 @@ $('#market-search')?.addEventListener('input', () => {
   searchDebounce = setTimeout(loadMarkets, 300);
 });
 $('#market-sort')?.addEventListener('change', loadMarkets);
+$('#market-category-filter')?.addEventListener('change', loadMarkets);
 let legacySearchDebounce = null;
 $('#legacy-search')?.addEventListener('input', () => {
   clearTimeout(legacySearchDebounce);
@@ -1670,6 +1709,104 @@ function renderMarketsLegacy(markets, emptyText = 'No resolved markets yet') {
   }).join('');
 }
 
+// --- Load Categories ---
+async function loadCategories() {
+  try {
+    categoriesList = await api('/api/categories');
+    populateCategoryDropdowns();
+    if (currentUser?.role === 'admin') renderAdminCategories();
+  } catch (err) {
+    console.error('Failed to load categories:', err);
+  }
+}
+
+function populateCategoryDropdowns() {
+  // Market creation dropdown
+  const createSelect = $('#market-category');
+  if (createSelect) {
+    const currentVal = createSelect.value;
+    createSelect.innerHTML = '<option value="">No category</option>';
+    categoriesList.forEach(c => {
+      const opt = document.createElement('option');
+      opt.value = c.id;
+      opt.textContent = c.name;
+      createSelect.appendChild(opt);
+    });
+    createSelect.value = currentVal;
+  }
+
+  // Market filter dropdown
+  const filterSelect = $('#market-category-filter');
+  if (filterSelect) {
+    const currentVal = filterSelect.value;
+    filterSelect.innerHTML = '<option value="">All categories</option>';
+    categoriesList.forEach(c => {
+      const opt = document.createElement('option');
+      opt.value = c.id;
+      opt.textContent = c.name;
+      filterSelect.appendChild(opt);
+    });
+    filterSelect.value = currentVal;
+  }
+}
+
+// --- Update Market Category (Admin) ---
+async function updateMarketCategory(marketId, categoryId) {
+  try {
+    await api(`/admin/markets/${marketId}/category`, { method: 'PATCH', body: JSON.stringify({ category_id: categoryId }) });
+    showToast('Category updated', 'success');
+    loadMarkets();
+  } catch (err) {
+    showToast(err.message);
+  }
+}
+
+// --- Admin: Category Management ---
+function renderAdminCategories() {
+  const container = $('#categories-list');
+  if (!container) return;
+  if (!categoriesList.length) {
+    container.innerHTML = '<p style="color:var(--text-dim);font-size:0.9rem;">No categories yet. Create one above.</p>';
+    return;
+  }
+  container.innerHTML = categoriesList.map(c => {
+    const marketCount = categoriesList.filter(m => m.id === c.id).length;
+    return `<div class="category-admin-row">
+      <span class="category-admin-color" style="background:${c.color}"></span>
+      <span class="category-admin-name">${esc(c.name)}</span>
+      <button class="btn btn-sm btn-outline btn-danger-outline delete-category-btn" data-category-id="${c.id}" data-category-name="${esc(c.name)}">Delete</button>
+    </div>`;
+  }).join('');
+}
+
+window.deleteCategory = async function(categoryId, categoryName) {
+  const confirmed = await showConfirmModal('Delete Category', `Delete "${esc(categoryName)}"? Markets in this category will become uncategorized.`);
+  if (!confirmed) return;
+  try {
+    await api(`/admin/categories/${categoryId}`, { method: 'DELETE' });
+    showToast(`Category "${categoryName}" deleted`, 'success');
+    loadCategories();
+  } catch (err) {
+    showToast(err.message);
+  }
+};
+
+// --- Admin: Create Category ---
+$('#create-category-form')?.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const name = $('#category-name').value.trim();
+  const color = $('#category-color').value;
+  try {
+    await api('/admin/categories', { method: 'POST', body: JSON.stringify({ name, color }) });
+    flashMsg($('#create-category-msg'), `Category "${name}" created!`, 'success');
+    $('#create-category-form').reset();
+    $('#category-color').value = '#6c5ce7';
+    loadCategories();
+  } catch (err) {
+    flashMsg($('#create-category-msg'), err.message);
+  }
+});
+
 // --- Navigation ---
 function navigateTo(page) {
   currentPage = page;
@@ -1706,6 +1843,7 @@ function navigateTo(page) {
     loadBackupStatus();
     loadAdminMarketSelect();
     loadActivityLog();
+    loadCategories();
   }
 }
 
@@ -1738,6 +1876,7 @@ function onAuth() {
     else hide(el);
   });
 
+  loadCategories();
   navigateTo('markets');
   startPolling();
 

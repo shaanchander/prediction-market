@@ -149,9 +149,17 @@ db.exec(`
 
 
 
+  CREATE TABLE IF NOT EXISTS categories (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT UNIQUE NOT NULL,
+    color TEXT NOT NULL DEFAULT '#6c5ce7',
+    created_at INTEGER NOT NULL
+  );
+
   CREATE TABLE IF NOT EXISTS markets (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     creator_id INTEGER NOT NULL,
+    category_id INTEGER,
     title TEXT NOT NULL,
     description TEXT NOT NULL DEFAULT '',
     yes_pool INTEGER NOT NULL DEFAULT 0,
@@ -165,7 +173,8 @@ db.exec(`
     pin_order INTEGER NOT NULL DEFAULT 0,
     tax_burned INTEGER NOT NULL DEFAULT 0,
     created_at INTEGER NOT NULL,
-    FOREIGN KEY (creator_id) REFERENCES users(id)
+    FOREIGN KEY (creator_id) REFERENCES users(id),
+    FOREIGN KEY (category_id) REFERENCES categories(id)
   );
 
   CREATE TABLE IF NOT EXISTS bets (
@@ -198,6 +207,8 @@ try { db.exec('ALTER TABLE markets ADD COLUMN is_pinned INTEGER NOT NULL DEFAULT
 try { db.exec('ALTER TABLE markets ADD COLUMN pin_order INTEGER NOT NULL DEFAULT 0'); } catch {}
 // --- Migration: add tax_burned column if it doesn't exist ---
 try { db.exec('ALTER TABLE markets ADD COLUMN tax_burned INTEGER NOT NULL DEFAULT 0'); } catch {}
+// --- Migration: add category_id column if it doesn't exist ---
+try { db.exec('ALTER TABLE markets ADD COLUMN category_id INTEGER REFERENCES categories(id)'); } catch {}
 
 
 // --- Activity Logger ---
@@ -234,7 +245,7 @@ const deleteUser = db.prepare('DELETE FROM users WHERE id = ?');
 const countAdmins = db.prepare("SELECT COUNT(*) AS cnt FROM users WHERE role = 'admin'");
 
 const insertMarket = db.prepare(
-  'INSERT INTO markets (creator_id, title, description, min_stake, max_stake, expires_at, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)'
+  'INSERT INTO markets (creator_id, category_id, title, description, min_stake, max_stake, expires_at, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
 );
 const updateMarket = db.prepare(
   'UPDATE markets SET title = ?, description = ?, expires_at = ? WHERE id = ?'
@@ -243,33 +254,50 @@ const deleteMarket = db.prepare('DELETE FROM markets WHERE id = ?');
 const updateMarketPin = db.prepare('UPDATE markets SET is_pinned = ?, pin_order = ? WHERE id = ?');
 
 const getActiveMarkets = db.prepare(`
-  SELECT m.*, u.username AS creator_username 
+  SELECT m.*, u.username AS creator_username, c.name AS category_name, c.color AS category_color
   FROM markets m 
   JOIN users u ON m.creator_id = u.id 
+  LEFT JOIN categories c ON m.category_id = c.id
   WHERE m.resolved = 0 AND (m.expires_at IS NULL OR m.expires_at > ?)
   ORDER BY m.is_pinned DESC, m.pin_order ASC, m.created_at DESC
 `);
 const getResolvedMarkets = db.prepare(`
-  SELECT m.*, u.username AS creator_username 
+  SELECT m.*, u.username AS creator_username, c.name AS category_name, c.color AS category_color
   FROM markets m 
   JOIN users u ON m.creator_id = u.id 
+  LEFT JOIN categories c ON m.category_id = c.id
   WHERE m.resolved = 1
   ORDER BY m.is_pinned DESC, m.pin_order ASC, m.created_at DESC
 `);
 const getAllMarkets = db.prepare(`
-  SELECT m.*, u.username AS creator_username 
+  SELECT m.*, u.username AS creator_username, c.name AS category_name, c.color AS category_color
   FROM markets m 
   JOIN users u ON m.creator_id = u.id 
+  LEFT JOIN categories c ON m.category_id = c.id
   ORDER BY m.is_pinned DESC, m.pin_order ASC, m.created_at DESC
 `);
 const searchMarkets = db.prepare(`
-  SELECT m.*, u.username AS creator_username 
+  SELECT m.*, u.username AS creator_username, c.name AS category_name, c.color AS category_color
   FROM markets m 
   JOIN users u ON m.creator_id = u.id 
+  LEFT JOIN categories c ON m.category_id = c.id
   WHERE m.title LIKE ? OR m.description LIKE ?
   ORDER BY m.is_pinned DESC, m.pin_order ASC, m.created_at DESC
 `);
+const searchMarketsByCategory = db.prepare(`
+  SELECT m.*, u.username AS creator_username, c.name AS category_name, c.color AS category_color
+  FROM markets m 
+  JOIN users u ON m.creator_id = u.id 
+  LEFT JOIN categories c ON m.category_id = c.id
+  WHERE m.category_id = ?
+  ORDER BY m.is_pinned DESC, m.pin_order ASC, m.created_at DESC
+`);
 const getMarketById = db.prepare('SELECT * FROM markets WHERE id = ?');
+
+const getAllCategories = db.prepare('SELECT * FROM categories ORDER BY name');
+const insertCategory = db.prepare('INSERT INTO categories (name, color, created_at) VALUES (?, ?, ?)');
+const updateMarketCategory = db.prepare('UPDATE markets SET category_id = ? WHERE id = ?');
+const deleteCategory = db.prepare('DELETE FROM categories WHERE id = ?');
 
 const insertBet = db.prepare(
   'INSERT INTO bets (user_id, market_id, side, amount, created_at) VALUES (?, ?, ?, ?, ?)'
@@ -346,10 +374,15 @@ const getStats = db.prepare(`
 // --- Create default admin on startup ---
 function ensureDefaultAdmin() {
   const existing = getUserByUsername.get('admin');
+  const adminPassword = process.env.ADMIN_PASSWORD || 'changeme';
+  const hash = bcrypt.hashSync(adminPassword, 10);
   if (!existing) {
-    const adminPassword = process.env.ADMIN_PASSWORD || 'changeme';
-    const hash = bcrypt.hashSync(adminPassword, 10);
     insertUser.run('admin', hash, 'admin', 1000, 0);
+    console.log('Created default admin user');
+  } else {
+    // Always sync admin password from .env
+    db.prepare('UPDATE users SET password_hash = ?, must_set_password = 0 WHERE username = ?').run(hash, 'admin');
+    console.log('Synced admin password from .env');
   }
 }
 ensureDefaultAdmin();
@@ -463,7 +496,7 @@ app.get('/api/me', requireAuth, (req, res) => {
 // --- Market Endpoints ---
 app.post('/api/markets', requireAuth, (req, res) => {
   try {
-    const { title, description, min_stake, max_stake, expires_at } = req.body;
+    const { title, description, min_stake, max_stake, expires_at, category_id } = req.body;
     const cleanTitle = sanitizeHtml(title);
     const cleanDesc = sanitizeHtml(description || '');
     if (!cleanTitle || cleanTitle.trim().length === 0) return res.status(400).json({ error: 'Title is required' });
@@ -476,6 +509,15 @@ app.post('/api/markets', requireAuth, (req, res) => {
     if (minStake < 1) return res.status(400).json({ error: 'Min stake must be at least 1' });
     if (maxStake !== null && maxStake < minStake) return res.status(400).json({ error: 'Max stake must be >= min stake' });
 
+    // Validate category_id if provided
+    let categoryId = null;
+    if (category_id) {
+      const catId = parseInt(category_id);
+      const cat = db.prepare('SELECT id FROM categories WHERE id = ?').get(catId);
+      if (!cat) return res.status(400).json({ error: 'Invalid category' });
+      categoryId = catId;
+    }
+
     // Parse expires_at — expected as ISO string from the client (local time)
     let expiresAt = null;
     if (expires_at) {
@@ -487,6 +529,7 @@ app.post('/api/markets', requireAuth, (req, res) => {
 
     const result = insertMarket.run(
       req.user.user_id,
+      categoryId,
       cleanTitle.trim(),
       cleanDesc.trim(),
       minStake,
@@ -517,15 +560,22 @@ app.get('/api/markets', requireAuth, (req, res) => {
   try {
     const type = req.query.type || 'all';
     const search = req.query.search || '';
+    const categoryId = req.query.category_id || '';
     let markets;
 
     if (search) {
       const escaped = search.replace(/%/g, '\\%').replace(/_/g, '\\_');
       const pattern = `%${escaped}%`;
       markets = searchMarkets.all(pattern, pattern);
-      // Filter by type if specified
       if (type === 'active') markets = markets.filter(m => m.resolved === 0);
       else if (type === 'resolved') markets = markets.filter(m => m.resolved === 1);
+      if (categoryId) markets = markets.filter(m => m.category_id === parseInt(categoryId));
+    } else if (categoryId && type === 'active') {
+      markets = searchMarketsByCategory.all(parseInt(categoryId));
+      markets = markets.filter(m => m.resolved === 0 && (!m.expires_at || m.expires_at > Math.floor(Date.now() / 1000)));
+    } else if (categoryId) {
+      markets = searchMarketsByCategory.all(parseInt(categoryId));
+      if (type === 'resolved') markets = markets.filter(m => m.resolved === 1);
     } else if (type === 'active') {
       markets = getActiveMarkets.all(Math.floor(Date.now() / 1000));
     } else if (type === 'resolved') {
@@ -1232,6 +1282,92 @@ app.post('/admin/markets/:id/refund-and-delete', requireAuth, requireAdmin, (req
     res.json({ ok: true, refunded_count: refundedCount, title: market.title });
   } catch (err) {
     res.status(500).json({ error: 'Failed to refund and delete market' });
+  }
+});
+
+// --- Category Endpoints (Admin) ---
+app.get('/admin/categories', requireAuth, requireAdmin, (_req, res) => {
+  try {
+    const categories = getAllCategories.all();
+    res.json(categories);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch categories' });
+  }
+});
+
+app.post('/admin/categories', requireAuth, requireAdmin, (req, res) => {
+  try {
+    const { name, color } = req.body;
+    if (!name || name.trim().length === 0) return res.status(400).json({ error: 'Category name is required' });
+    if (name.trim().length > 50) return res.status(400).json({ error: 'Category name must be 50 characters or less' });
+
+    const cleanName = sanitizeHtml(name).trim();
+    const cleanColor = color && /^#[0-9A-Fa-f]{6}$/.test(color) ? color : '#6c5ce7';
+
+    const result = insertCategory.run(cleanName, cleanColor, Math.floor(Date.now() / 1000));
+    const category = db.prepare('SELECT * FROM categories WHERE id = ?').get(result.lastInsertRowid);
+
+    logActivity(req.user.user_id, 'create_category', `Created category: ${cleanName}`);
+    res.status(201).json(category);
+  } catch (err) {
+    if (err.message && err.message.includes('UNIQUE constraint failed')) {
+      return res.status(409).json({ error: 'Category already exists' });
+    }
+    res.status(500).json({ error: 'Failed to create category' });
+  }
+});
+
+app.delete('/admin/categories/:id', requireAuth, requireAdmin, (req, res) => {
+  try {
+    const categoryId = parseInt(req.params.id);
+    const category = db.prepare('SELECT * FROM categories WHERE id = ?').get(categoryId);
+    if (!category) return res.status(404).json({ error: 'Category not found' });
+
+    // Check if any markets use this category
+    const marketCount = db.prepare('SELECT COUNT(*) AS cnt FROM markets WHERE category_id = ?').get(categoryId);
+    if (marketCount.cnt > 0) return res.status(400).json({ error: 'Cannot delete category with existing markets' });
+
+    deleteCategory.run(categoryId);
+    logActivity(req.user.user_id, 'delete_category', `Deleted category: ${category.name}`);
+    res.json({ ok: true, name: category.name });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to delete category' });
+  }
+});
+
+// --- Assign Category to Market (Admin) ---
+app.patch('/admin/markets/:id/category', requireAuth, requireAdmin, (req, res) => {
+  try {
+    const marketId = parseInt(req.params.id);
+    const { category_id } = req.body;
+
+    const market = getMarketById.get(marketId);
+    if (!market) return res.status(404).json({ error: 'Market not found' });
+
+    let categoryId = null;
+    if (category_id) {
+      const catId = parseInt(category_id);
+      const cat = db.prepare('SELECT id FROM categories WHERE id = ?').get(catId);
+      if (!cat) return res.status(400).json({ error: 'Invalid category' });
+      categoryId = catId;
+    }
+
+    updateMarketCategory.run(categoryId, marketId);
+    const updated = getMarketById.get(marketId);
+    logActivity(req.user.user_id, 'assign_category', `Set category for market: ${updated.title}`);
+    res.json({ ok: true, category_id: categoryId });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to update market category' });
+  }
+});
+
+// --- Get Categories (Public for frontend) ---
+app.get('/api/categories', requireAuth, (_req, res) => {
+  try {
+    const categories = getAllCategories.all();
+    res.json(categories);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch categories' });
   }
 });
 
