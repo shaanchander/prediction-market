@@ -1,7 +1,6 @@
 - anonymous bet (maybe when making market as well?)
 - dont show voters until it's closed
 - make markets page more readable on desktop (maybe 2 wide)
-- categories (different background colour backgrounds)
 - tags
 
 - make not a single page app?
@@ -20,3 +19,4 @@ done
 - estimated payout when placing bet
 - make the expiry times render years, months, weeks
 - add current staked amount to leaderboard (maybe user profile instead)
+- categories (different background colour backgrounds?)

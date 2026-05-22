@@ -692,6 +692,7 @@ app.get('/api/markets/:id/bets', requireAuth, (req, res) => {
     const marketId = parseInt(req.params.id);
     const market = getMarketById.get(marketId);
     if (!market) return res.status(404).json({ error: 'Market not found' });
+    if (market.resolved !== 1) return res.status(403).json({ error: 'Voters only visible after market is resolved' });
 
     const bets = getBetsForMarket.all(marketId);
     const yesBets = bets.filter(b => b.side === 'yes');

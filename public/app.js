@@ -105,13 +105,6 @@ function updateMarketsInPlace(markets) {
       }
     }
 
-    // Update voters toggle text
-    const votersToggle = card.querySelector('.voters-toggle');
-    if (votersToggle) {
-      votersToggle.textContent = m.bet_count > 0
-        ? `👥 See voters (${m.bet_count})`
-        : '👥 See voters';
-    }
   });
 
   // Check if markets were added or removed — full re-render if count mismatch
@@ -873,10 +866,6 @@ function renderMarkets(markets, emptyIcon = '📊', emptyText = 'No active marke
           ${renderMarketActions(m)}
           ${betSection}
           ${resolveSection}
-        </div>
-        <div class="voters-section">
-          <button class="voters-toggle" onclick="toggleVoters(${m.id}, this)">👥 See voters${m.bet_count > 0 ? ` (${m.bet_count})` : ''}</button>
-          <div class="voters-content" id="voters-${m.id}"></div>
         </div>
       </div>`;
   }).join('');
