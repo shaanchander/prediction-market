@@ -634,13 +634,41 @@ function formatExpiry(expiresAt) {
   const urgent = diff < 60 * 60 * 1000;
 
   // Time remaining
-  const hours = Math.floor(diff / (1000 * 60 * 60));
-  if (hours >= 24) {
-    const days = Math.floor(hours / 24);
-    return { text: `Expires in ${days}d ${hours % 24}h`, expired: false, urgent: false };
+  const totalSeconds = Math.floor(diff / 1000);
+  const SECS_IN_MINUTE = 60;
+  const SECS_IN_HOUR = 3600;
+  const SECS_IN_DAY = 86400;
+  const SECS_IN_WEEK = 604800;
+  const SECS_IN_MONTH = 2592000; // 30 days average
+  const SECS_IN_YEAR = 31536000; // 365 days
+
+  const years = Math.floor(totalSeconds / SECS_IN_YEAR);
+  if (years > 0) {
+    const remainingMonths = Math.floor((totalSeconds - years * SECS_IN_YEAR) / SECS_IN_MONTH);
+    return { text: `Expires in ${years}y ${remainingMonths}mo`, expired: false, urgent: false };
   }
+
+  const months = Math.floor(totalSeconds / SECS_IN_MONTH);
+  if (months > 0) {
+    const remainingWeeks = Math.floor((totalSeconds - months * SECS_IN_MONTH) / SECS_IN_WEEK);
+    return { text: `Expires in ${months}mo ${remainingWeeks}w`, expired: false, urgent: false };
+  }
+
+  const weeks = Math.floor(totalSeconds / SECS_IN_WEEK);
+  if (weeks > 0) {
+    const remainingDays = Math.floor((totalSeconds - weeks * SECS_IN_WEEK) / SECS_IN_DAY);
+    return { text: `Expires in ${weeks}w ${remainingDays}d`, expired: false, urgent: false };
+  }
+
+  const days = Math.floor(totalSeconds / SECS_IN_DAY);
+  if (days > 0) {
+    const remainingHours = Math.floor((totalSeconds - days * SECS_IN_DAY) / SECS_IN_HOUR);
+    return { text: `Expires in ${days}d ${remainingHours}h`, expired: false, urgent: false };
+  }
+
+  const hours = Math.floor(totalSeconds / SECS_IN_HOUR);
   if (hours > 0) return { text: `Expires in ${hours}h`, expired: false, urgent: urgent };
-  const minutes = Math.floor(diff / (1000 * 60));
+  const minutes = Math.floor(totalSeconds / SECS_IN_MINUTE);
   return { text: `Expires in ${minutes}m`, expired: false, urgent: true };
 }
 

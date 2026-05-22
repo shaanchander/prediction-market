@@ -6,7 +6,6 @@
 
 - make the expiry times render years, months, weeks
 - add current staked amount to leaderboard (maybe user profile instead)
-- estimated payout when placing bet
 
 - make not a single page app?
 - add fake scams for certain users
@@ -21,3 +20,4 @@ done
 - make total bets on either side more clear (emojis currently)
 - pinned/featured bets (set by admin)
 - prevent betting on both sides
+- estimated payout when placing bet
