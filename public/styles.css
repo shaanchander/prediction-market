@@ -813,6 +813,89 @@ header {
   border: 1px solid;
 }
 
+/* Tags Row on Market Cards */
+.market-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  margin-bottom: 0.5rem;
+}
+
+/* Tag Badge — neutral, no color */
+.tag-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.15rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  background: rgba(139, 143, 163, 0.1);
+  color: var(--text-dim);
+  border: 1px solid rgba(139, 143, 163, 0.2);
+}
+
+.tag-badge-editable {
+  background: rgba(108, 92, 231, 0.12);
+  color: var(--primary);
+  border-color: rgba(108, 92, 231, 0.25);
+}
+
+.tag-remove-btn {
+  background: none;
+  border: none;
+  color: inherit;
+  cursor: pointer;
+  font-size: 0.85rem;
+  line-height: 1;
+  padding: 0;
+  opacity: 0.7;
+  transition: opacity 0.15s;
+}
+.tag-remove-btn:hover {
+  opacity: 1;
+}
+
+/* Tags Input Wrapper */
+.tags-input-wrap {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  padding: 0.4rem 0.6rem;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  min-height: 42px;
+  align-items: center;
+  cursor: text;
+  transition: border-color 0.15s;
+}
+.tags-input-wrap:focus-within {
+  border-color: var(--primary);
+}
+
+.tags-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  flex: 1;
+}
+
+.tags-input {
+  flex: 1;
+  min-width: 100px;
+  border: none;
+  background: transparent;
+  color: var(--text);
+  font-size: 0.85rem;
+  outline: none;
+  padding: 0.15rem 0;
+}
+.tags-input::placeholder {
+  color: var(--text-dim);
+  opacity: 0.6;
+}
+
 /* Color Picker Row */
 .color-picker-row {
   display: flex;

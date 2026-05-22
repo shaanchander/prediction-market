@@ -156,6 +156,19 @@ db.exec(`
     created_at INTEGER NOT NULL
   );
 
+  CREATE TABLE IF NOT EXISTS tags (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT UNIQUE NOT NULL COLLATE NOCASE
+  );
+
+  CREATE TABLE IF NOT EXISTS market_tags (
+    market_id INTEGER NOT NULL,
+    tag_id INTEGER NOT NULL,
+    PRIMARY KEY (market_id, tag_id),
+    FOREIGN KEY (market_id) REFERENCES markets(id) ON DELETE CASCADE,
+    FOREIGN KEY (tag_id) REFERENCES tags(id) ON DELETE CASCADE
+  );
+
   CREATE TABLE IF NOT EXISTS markets (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     creator_id INTEGER NOT NULL,
@@ -209,6 +222,18 @@ try { db.exec('ALTER TABLE markets ADD COLUMN pin_order INTEGER NOT NULL DEFAULT
 try { db.exec('ALTER TABLE markets ADD COLUMN tax_burned INTEGER NOT NULL DEFAULT 0'); } catch {}
 // --- Migration: add category_id column if it doesn't exist ---
 try { db.exec('ALTER TABLE markets ADD COLUMN category_id INTEGER REFERENCES categories(id)'); } catch {}
+// --- Migration: create tags tables if they don't exist ---
+try { db.exec(`CREATE TABLE IF NOT EXISTS tags (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT UNIQUE NOT NULL COLLATE NOCASE)`); } catch {}
+try { db.exec(`CREATE TABLE IF NOT EXISTS market_tags (
+  market_id INTEGER NOT NULL,
+  tag_id INTEGER NOT NULL,
+  PRIMARY KEY (market_id, tag_id),
+  FOREIGN KEY (market_id) REFERENCES markets(id) ON DELETE CASCADE,
+  FOREIGN KEY (tag_id) REFERENCES tags(id) ON DELETE CASCADE
+)`); } catch {}
+// --- Migration: create tags tables if they don't exist ---
+try { db.exec('CREATE TABLE IF NOT EXISTS tags (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT UNIQUE NOT NULL COLLATE NOCASE)'); } catch {}
+try { db.exec('CREATE TABLE IF NOT EXISTS market_tags (market_id INTEGER NOT NULL, tag_id INTEGER NOT NULL, PRIMARY KEY (market_id, tag_id), FOREIGN KEY (market_id) REFERENCES markets(id) ON DELETE CASCADE, FOREIGN KEY (tag_id) REFERENCES tags(id) ON DELETE CASCADE)'); } catch {}
 
 
 // --- Activity Logger ---
@@ -497,7 +522,7 @@ app.get('/api/me', requireAuth, (req, res) => {
 // --- Market Endpoints ---
 app.post('/api/markets', requireAuth, (req, res) => {
   try {
-    const { title, description, min_stake, max_stake, expires_at, category_id } = req.body;
+    const { title, description, min_stake, max_stake, expires_at, category_id, tags } = req.body;
     const cleanTitle = sanitizeHtml(title);
     const cleanDesc = sanitizeHtml(description || '');
     if (!cleanTitle || cleanTitle.trim().length === 0) return res.status(400).json({ error: 'Title is required' });
@@ -539,6 +564,20 @@ app.post('/api/markets', requireAuth, (req, res) => {
       Math.floor(Date.now() / 1000)
     );
 
+    // Handle tags
+    if (tags && Array.isArray(tags)) {
+      const insertTag = db.prepare('INSERT OR IGNORE INTO tags (name) VALUES (?)');
+      const getTagId = db.prepare('SELECT id FROM tags WHERE name = ? COLLATE NOCASE');
+      const insertMarketTag = db.prepare('INSERT OR IGNORE INTO market_tags (market_id, tag_id) VALUES (?, ?)');
+      for (const tagName of tags) {
+        const cleanTag = sanitizeHtml(tagName.trim());
+        if (!cleanTag) continue;
+        insertTag.run(cleanTag);
+        const tag = getTagId.get(cleanTag);
+        if (tag) insertMarketTag.run(result.lastInsertRowid, tag.id);
+      }
+    }
+
     const market = getMarketById.get(result.lastInsertRowid);
     logActivity(req.user.user_id, 'create_market', `Created market: ${market.title}`);
     res.status(201).json(market);
@@ -555,6 +594,24 @@ function getBetCounts(marketIds) {
     counts[id] = row ? row.cnt : 0;
   }
   return counts;
+}
+
+// Helper to get tags for a list of market IDs
+function getTagsForMarkets(marketIds) {
+  const tags = {};
+  if (!marketIds.length) return tags;
+  const placeholders = marketIds.map(() => '?').join(',');
+  const rows = db.prepare(`
+    SELECT mt.market_id, t.name
+    FROM market_tags mt
+    JOIN tags t ON mt.tag_id = t.id
+    WHERE mt.market_id IN (${placeholders})
+  `).all(...marketIds);
+  for (const row of rows) {
+    if (!tags[row.market_id]) tags[row.market_id] = [];
+    tags[row.market_id].push(row.name);
+  }
+  return tags;
 }
 
 app.get('/api/markets', requireAuth, (req, res) => {
@@ -585,10 +642,11 @@ app.get('/api/markets', requireAuth, (req, res) => {
       markets = getAllMarkets.all();
     }
 
-    // Attach bet counts
+    // Attach bet counts and tags
     const marketIds = markets.map(m => m.id);
     const betCounts = getBetCounts(marketIds);
-    markets = markets.map(m => ({ ...m, bet_count: betCounts[m.id] || 0 }));
+    const marketTags = getTagsForMarkets(marketIds);
+    markets = markets.map(m => ({ ...m, bet_count: betCounts[m.id] || 0, tags: marketTags[m.id] || [] }));
 
     res.json(markets);
   } catch (err) {
@@ -901,6 +959,46 @@ app.get('/api/history', requireAuth, (req, res) => {
     res.json(betsWithPayout);
   } catch (err) {
     res.status(500).json({ error: 'Failed to fetch bet history' });
+  }
+});
+
+// --- Tags Endpoints ---
+app.get('/api/tags', requireAuth, (_req, res) => {
+  try {
+    const allTags = db.prepare('SELECT id, name FROM tags ORDER BY name').all();
+    res.json(allTags);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch tags' });
+  }
+});
+
+app.patch('/api/markets/:id/tags', requireAuth, requireAdmin, (req, res) => {
+  try {
+    const marketId = parseInt(req.params.id);
+    const { tags } = req.body;
+    const market = getMarketById.get(marketId);
+    if (!market) return res.status(404).json({ error: 'Market not found' });
+    
+    // Clear existing tags
+    db.prepare('DELETE FROM market_tags WHERE market_id = ?').run(marketId);
+    
+    if (tags && Array.isArray(tags)) {
+      const insertTag = db.prepare('INSERT OR IGNORE INTO tags (name) VALUES (?)');
+      const getTagId = db.prepare('SELECT id FROM tags WHERE name = ? COLLATE NOCASE');
+      const insertMarketTag = db.prepare('INSERT OR IGNORE INTO market_tags (market_id, tag_id) VALUES (?, ?)');
+      for (const tagName of tags) {
+        const cleanTag = sanitizeHtml(tagName.trim());
+        if (!cleanTag) continue;
+        insertTag.run(cleanTag);
+        const tag = getTagId.get(cleanTag);
+        if (tag) insertMarketTag.run(marketId, tag.id);
+      }
+    }
+    
+    logActivity(req.user.user_id, 'edit_market_tags', `Updated tags for market: ${market.title}`);
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to update tags' });
   }
 });
 

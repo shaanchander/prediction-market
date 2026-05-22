@@ -4,6 +4,8 @@ let currentUser = null;
 let currentPage = 'markets';
 let pendingUsername = null; // username waiting to set password
 let categoriesList = [];
+let availableTags = [];
+let selectedTags = []; // Tags selected during market creation
 
 // --- Live Polling ---
 let pollingInterval = null;
@@ -394,8 +396,11 @@ $('#market-form').addEventListener('submit', async (e) => {
   const max_stake = $('#market-max').value ? parseInt($('#market-max').value) : null;
   const expires_at = $('#market-expires').value || null;
   const category_id = $('#market-category').value || null;
+  const tags = [...selectedTags];
+  selectedTags = []; // Reset for next market
+  clearTagsInput();
   try {
-    await api('/api/markets', { method: 'POST', body: JSON.stringify({ title, description, min_stake, max_stake, expires_at, category_id }) });
+    await api('/api/markets', { method: 'POST', body: JSON.stringify({ title, description, min_stake, max_stake, expires_at, category_id, tags }) });
     showToast('Market created!', 'success');
     const overlay = $('#create-market-sheet-overlay');
     overlay.classList.remove('bet-sheet-open');
@@ -687,11 +692,18 @@ function renderMarketActions(m) {
       </select>`;
   }
 
+  // Tag edit button (admin only)
+  let tagEditBtn = '';
+  if (isAdmin) {
+    tagEditBtn = `<button class="btn btn-sm btn-outline action-btn edit-tags-btn" data-market-id="${m.id}" data-market-title="${esc(m.title)}" data-market-tags="${(m.tags || []).join(',')}">Edit Tags</button>`;
+  }
+
   return `
     <div class="market-actions">
       <button class="btn btn-sm btn-outline action-btn pin-market-btn" data-market-id="${m.id}" data-pinned="${m.is_pinned ? '1' : '0'}">📌 ${pinLabel}</button>
       <button class="btn btn-sm btn-outline action-btn edit-market-btn" data-market-id="${m.id}" data-market-title="${esc(m.title)}" data-market-desc="${esc(m.description)}" data-market-expires="${esc(expiresAtStr)}">Edit</button>
       <button class="btn btn-sm btn-outline action-btn btn-danger-outline delete-market-btn" data-market-id="${m.id}" data-market-title="${esc(m.title)}">Delete</button>
+      ${tagEditBtn}
       ${categorySelect}
     </div>`;
 }
@@ -724,6 +736,14 @@ document.addEventListener('click', (e) => {
     const marketId = parseInt(e.target.dataset.marketId);
     const title = e.target.dataset.marketTitle;
     deleteMarket(marketId, title);
+  }
+  // Edit tags button (admin)
+  if (e.target.classList.contains('edit-tags-btn')) {
+    const marketId = parseInt(e.target.dataset.marketId);
+    const title = e.target.dataset.marketTitle;
+    const existingTags = e.target.dataset.marketTags || '';
+    editMarketTags(marketId, title, existingTags);
+    return;
   }
   // Edit category button
   if (e.target.classList.contains('edit-category-btn')) {
@@ -825,6 +845,9 @@ function renderMarkets(markets, emptyIcon = '📊', emptyText = 'No active marke
     const timeAgoLabel = m.created_at ? timeAgo(m.created_at) : '';
 
     const pinIcon = m.is_pinned ? '<span class="pin-icon">📌</span> ' : '';
+    const tagsHtml = (m.tags && m.tags.length > 0)
+      ? `<div class="market-tags">${m.tags.map(t => `<span class="tag-badge">${esc(t)}</span>`).join('')}</div>`
+      : '';
     const categoryBadge = m.category_name
       ? `<span class="category-badge" style="background:${m.category_color || '#6c5ce7'}22;color:${m.category_color || '#6c5ce7'};border-color:${m.category_color || '#6c5ce7'}44">${esc(m.category_name)}</span>`
       : '';
@@ -840,6 +863,7 @@ function renderMarkets(markets, emptyIcon = '📊', emptyText = 'No active marke
           </div>
         </div>
         ${m.description ? `<div class="market-desc">${esc(m.description)}</div>` : ''}
+        ${tagsHtml}
         <div class="market-probability-row">
           <div class="market-probability-bar-wrap">
             <div class="market-probability-bar">
@@ -1044,6 +1068,22 @@ window.deleteMarket = async function (marketId, title) {
     await api(`/api/markets/${marketId}`, { method: 'DELETE' });
     loadMarkets();
     showToast('Market deleted', 'success');
+  } catch (err) {
+    showToast(err.message);
+  }
+};
+
+// --- Edit Market Tags (Admin) ---
+window.editMarketTags = async function (marketId, title, existingTagsStr) {
+  const existingTags = existingTagsStr ? existingTagsStr.split(',').map(t => t.trim()).filter(Boolean) : [];
+  const tagInput = existingTags.join(', ');
+  const tagList = await showPromptModal('Edit Tags', 'Tags (comma-separated):', tagInput);
+  if (tagList === null) return;
+  const tags = tagList.split(',').map(t => t.trim()).filter(Boolean);
+  try {
+    await api(`/api/markets/${marketId}/tags`, { method: 'PATCH', body: JSON.stringify({ tags }) });
+    loadMarkets();
+    showToast('Tags updated', 'success');
   } catch (err) {
     showToast(err.message);
   }
@@ -1671,6 +1711,7 @@ function renderMarketsLegacy(markets, emptyText = 'No resolved markets yet') {
           </div>
         </div>
         ${m.description ? `<div class="market-desc">${esc(m.description)}</div>` : ''}
+        ${m.tags && m.tags.length > 0 ? `<div class="market-tags">${m.tags.map(t => `<span class="tag-badge">${esc(t)}</span>`).join('')}</div>` : ''}
         <div class="market-probability-row">
           <div class="market-probability-bar-wrap">
             <div class="market-probability-bar">
@@ -1712,6 +1753,60 @@ async function loadCategories() {
   } catch (err) {
     console.error('Failed to load categories:', err);
   }
+}
+
+// --- Load Available Tags ---
+async function loadTags() {
+  try {
+    availableTags = await api('/api/tags');
+  } catch (err) {
+    console.error('Failed to load tags:', err);
+  }
+}
+
+// --- Tags Input Handler ---
+function initTagsInput() {
+  const input = $('#market-tags-input');
+  if (!input) return;
+
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' || e.key === ',') {
+      e.preventDefault();
+      const val = input.value.trim().replace(/,/g, '');
+      if (val && !selectedTags.includes(val)) {
+        selectedTags.push(val);
+        renderSelectedTags();
+      }
+      input.value = '';
+    }
+    if (e.key === 'Backspace' && !input.value && selectedTags.length > 0) {
+      selectedTags.pop();
+      renderSelectedTags();
+    }
+  });
+}
+
+function renderSelectedTags() {
+  const container = $('#market-tags-container');
+  if (!container) return;
+  container.innerHTML = selectedTags.map((t, i) =>
+    `<span class="tag-badge tag-badge-editable">${esc(t)}<button type="button" class="tag-remove-btn" data-index="${i}">×</button></span>`
+  ).join('');
+
+  container.querySelectorAll('.tag-remove-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      selectedTags.splice(parseInt(btn.dataset.index), 1);
+      renderSelectedTags();
+    });
+  });
+}
+
+function clearTagsInput() {
+  selectedTags = [];
+  const container = $('#market-tags-container');
+  if (container) container.innerHTML = '';
+  const input = $('#market-tags-input');
+  if (input) input.value = '';
 }
 
 function populateCategoryDropdowns() {
@@ -1913,6 +2008,8 @@ function onAuth() {
   });
 
   loadCategories();
+  loadTags();
+  initTagsInput();
   navigateTo('markets');
   startPolling();
 
