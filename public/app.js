@@ -65,11 +65,11 @@ function updateMarketsInPlace(markets) {
     const probNo = card.querySelector('.prob-no');
     if (probNo) probNo.textContent = `No ${noPct}%`;
 
-    // Update pool amounts (compact format: "🟢 10" / "🔴 50")
+    // Update pool amounts
     const poolYes = card.querySelector('.pool-yes-compact');
-    if (poolYes) poolYes.textContent = `🟢 ${m.yes_pool}`;
+    if (poolYes) poolYes.textContent = `YES: ${m.yes_pool}`;
     const poolNo = card.querySelector('.pool-no-compact');
-    if (poolNo) poolNo.textContent = `🔴 ${m.no_pool}`;
+    if (poolNo) poolNo.textContent = `NO: ${m.no_pool}`;
 
     // Update bet count badge
     const badge = card.querySelector('.bet-count-badge');
@@ -768,8 +768,8 @@ function renderMarkets(markets, emptyIcon = '📊', emptyText = 'No active marke
             </div>
           </div>
           <div class="market-pools-compact">
-            <span class="pool-compact pool-yes-compact">🟢 ${m.yes_pool}</span>
-            <span class="pool-compact pool-no-compact">🔴 ${m.no_pool}</span>
+            <span class="pool-compact pool-yes-compact">YES: ${m.yes_pool}</span>
+            <span class="pool-compact pool-no-compact">NO: ${m.no_pool}</span>
           </div>
         </div>
         <div class="market-meta">
@@ -1523,8 +1523,8 @@ function renderMarketsLegacy(markets, emptyText = 'No resolved markets yet') {
             </div>
           </div>
           <div class="market-pools-compact">
-            <span class="pool-compact pool-yes-compact">🟢 ${m.yes_pool}</span>
-            <span class="pool-compact pool-no-compact">🔴 ${m.no_pool}</span>
+            <span class="pool-compact pool-yes-compact">YES: ${m.yes_pool}</span>
+            <span class="pool-compact pool-no-compact">NO: ${m.no_pool}</span>
           </div>
         </div>
         <div class="market-meta">
