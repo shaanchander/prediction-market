@@ -878,8 +878,10 @@ function renderUserStats(bets) {
   let biggestWin = 0;
   let biggestLoss = 0;
 
+  let currentStaked = 0;
   bets.forEach(b => {
     totalStaked += b.amount;
+    if (b.resolved !== 1) currentStaked += b.amount;
     if (b.resolved === 1) {
       if (b.won) {
         totalReturned += b.payout;
@@ -902,6 +904,14 @@ function renderUserStats(bets) {
       <div class="stat-card">
         <div class="stat-card-value">${openBets}</div>
         <div class="stat-card-label">Open</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-card-value">${currentStaked}</div>
+        <div class="stat-card-label">Currently Staked</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-card-value">${totalStaked}</div>
+        <div class="stat-card-label">Total Staked</div>
       </div>
       <div class="stat-card">
         <div class="stat-card-value">${wins}W / ${losses}L</div>
@@ -1571,7 +1581,7 @@ function renderLeaderboardSorted() {
         return `
           <div class="leaderboard-table-row${highlight}">
             <span class="lt-rank">${rank}</span>
-            <span class="lt-name">${esc(u.username)}${isCurrentUser ? ' (You)' : ''}</span>
+            <span class="lt-name clickable-username" data-username="${esc(u.username)}">${esc(u.username)}${isCurrentUser ? ' (You)' : ''}</span>
             <span class="lt-stats">
               <span class="lt-stat">${u.tokens} tokens</span>
               <span class="lt-stat ${wrClass}">${u.wins + u.losses > 0 ? u.winRate + '%' : '—'}</span>
