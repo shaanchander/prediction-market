@@ -120,9 +120,6 @@ function updateMarketsInPlace(markets) {
   }
 }
 
-// Add data-market-id to market cards (called during initial render)
-// This is handled in renderMarkets below.
-
 // --- Toast Notification System ---
 function showToast(message, type = 'error') {
   const toast = document.createElement('div');
@@ -1031,35 +1028,22 @@ window.closeBetSheet = function () {
 };
 
 // Sheet bet buttons
-$('#bet-sheet-yes')?.addEventListener('click', async () => {
+async function submitBetSheet(side) {
   const amount = parseInt($('#bet-sheet-amount').value);
   if (!amount || amount <= 0) return showToast('Enter a valid amount');
   try {
-    const data = await api('/api/bet', { method: 'POST', body: JSON.stringify({ market_id: currentBetMarketId, side: 'yes', amount }) });
+    const data = await api('/api/bet', { method: 'POST', body: JSON.stringify({ market_id: currentBetMarketId, side, amount }) });
     currentUser.tokens = data.user.tokens;
     updateUserBar();
     loadMarkets();
-    showToast(`✓ ${amount} on YES · Balance: ${data.user.tokens.toLocaleString()}`, 'success');
+    showToast(`✓ ${amount} on ${side.toUpperCase()} · Balance: ${data.user.tokens.toLocaleString()}`, 'success');
     closeBetSheet();
   } catch (err) {
     showToast(err.message);
   }
-});
-
-$('#bet-sheet-no')?.addEventListener('click', async () => {
-  const amount = parseInt($('#bet-sheet-amount').value);
-  if (!amount || amount <= 0) return showToast('Enter a valid amount');
-  try {
-    const data = await api('/api/bet', { method: 'POST', body: JSON.stringify({ market_id: currentBetMarketId, side: 'no', amount }) });
-    currentUser.tokens = data.user.tokens;
-    updateUserBar();
-    loadMarkets();
-    showToast(`✓ ${amount} on NO · Balance: ${data.user.tokens.toLocaleString()}`, 'success');
-    closeBetSheet();
-  } catch (err) {
-    showToast(err.message);
-  }
-});
+}
+$('#bet-sheet-yes')?.addEventListener('click', () => submitBetSheet('yes'));
+$('#bet-sheet-no')?.addEventListener('click', () => submitBetSheet('no'));
 
 // Sheet close button
 $('#bet-sheet-close')?.addEventListener('click', closeBetSheet);
@@ -1557,31 +1541,27 @@ function navigateTo(page) {
     btn.classList.toggle('active', btn.dataset.page === page);
   });
   $$('.page').forEach((section) => hide(section));
+  hide($('#create-market-sheet-overlay'));
+
+  const isMarkets = page === 'markets';
+  if (isMarkets) show($('#new-market-btn'));
+  else hide($('#new-market-btn'));
 
   if (page === 'markets') {
     show($('#markets-section'));
-    show($('#new-market-btn'));
-    hide($('#create-market-sheet-overlay'));
     loadMarkets();
   } else if (page === 'legacy') {
     show($('#legacy-section'));
-    hide($('#new-market-btn'));
     loadLegacyMarkets();
   } else if (page === 'leaderboard') {
     show($('#leaderboard-section'));
-    hide($('#create-market-sheet-overlay'));
-    hide($('#new-market-btn'));
     loadLeaderboard();
   } else if (page === 'history') {
     show($('#history-section'));
-    hide($('#create-market-sheet-overlay'));
-    hide($('#new-market-btn'));
     loadBetHistory();
   } else if (page === 'admin') {
     stopPolling();
     show($('#admin-panel'));
-    hide($('#create-market-sheet-overlay'));
-    hide($('#new-market-btn'));
     loadAdminUsers();
     loadAdminStats();
     loadBackupStatus();
@@ -1594,11 +1574,9 @@ function navigateTo(page) {
 function updateUserBar() {
   if (!currentUser) return;
   $('#user-tokens').textContent = `🪙 ${currentUser.tokens}`;
-  const adminBadge = currentUser.role === 'admin' ? ' <span style="color:var(--warning);font-size:0.7rem;">(Admin)</span>' : '';
-  $('#user-name').textContent = currentUser.username;
-  // Append admin badge as a separate element to avoid innerHTML
   const existingBadge = $('#user-name .admin-badge');
   if (existingBadge) existingBadge.remove();
+  $('#user-name').textContent = currentUser.username;
   if (currentUser.role === 'admin') {
     const badge = document.createElement('span');
     badge.className = 'admin-badge';

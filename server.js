@@ -104,6 +104,12 @@ app.use(cors({ origin: corsOrigins, credentials: true }));
 app.use(bodyParser.json({ limit: '10kb' }));
 app.use(express.static(path.join(__dirname, 'public')));
 
+// --- Input Sanitization Helper ---
+function sanitizeHtml(str) {
+  if (typeof str !== 'string') return str;
+  return str.replace(/<[^>]*>/g, '');
+}
+
 // --- Rate Limiting ---
 const generalLimiter = rateLimit({
   windowMs: 60 * 1000, // 1 minute
@@ -180,22 +186,7 @@ db.exec(`
 try { db.exec('ALTER TABLE users ADD COLUMN must_set_password INTEGER NOT NULL DEFAULT 0'); } catch {}
 // --- Migration: add expires_at column if it doesn't exist ---
 try { db.exec('ALTER TABLE markets ADD COLUMN expires_at INTEGER'); } catch {}
-// --- Migration: create activity_log table if it doesn't exist ---
-try {
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS activity_log (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      user_id INTEGER,
-      action TEXT NOT NULL,
-      details TEXT,
-      ip TEXT,
-      created_at INTEGER NOT NULL,
-      FOREIGN KEY (user_id) REFERENCES users(id)
-    );
-  `);
-} catch {}
-// Migration: add ip column to activity_log if missing
-try { db.exec('ALTER TABLE activity_log ADD COLUMN ip TEXT'); } catch {}
+
 
 // --- Activity Logger ---
 const insertActivityLog = db.prepare(
@@ -533,12 +524,6 @@ app.get('/api/markets', requireAuth, (req, res) => {
     res.status(500).json({ error: 'Failed to fetch markets' });
   }
 });
-
-// --- Input Sanitization Helper ---
-function sanitizeHtml(str) {
-  if (typeof str !== 'string') return str;
-  return str.replace(/<[^>]*>/g, '');
-}
 
 // --- Market Edit Endpoint ---
 app.patch('/api/markets/:id', requireAuth, (req, res) => {
