@@ -1,19 +1,18 @@
-
-- make bet amount a slider?
 - anonymous bet (maybe when making market as well?)
 - dont show voters until it's closed
 - add fake scams for certain users
 - make markets page more readable (maybe 2 wide)
 - categories (different background colour backgrounds)
 - tags
-- pinned/featured bets (set by admin)
 - add tax (so we can add tokens without big inflation)
 
 
 
+cancelled?
+- make bet amount a slider?
+
 
 done
-
 - make quick bets percentages
 - make total bets on either side more clear (emojis currently)
 - pinned/featured bets (set by admin)

@@ -13,6 +13,7 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 const JWT_SECRET = process.env.JWT_SECRET;
 const JWT_EXPIRY = process.env.JWT_EXPIRY || '7d';
+const BET_TAX_RATE = 0.03; // 3% tax on bets, burned (deflationary)
 const fs = require('fs');
 
 // --- Database Backup ---
@@ -159,6 +160,7 @@ db.exec(`
     expires_at INTEGER,
     is_pinned INTEGER NOT NULL DEFAULT 0,
     pin_order INTEGER NOT NULL DEFAULT 0,
+    tax_burned INTEGER NOT NULL DEFAULT 0,
     created_at INTEGER NOT NULL,
     FOREIGN KEY (creator_id) REFERENCES users(id)
   );
@@ -191,6 +193,8 @@ try { db.exec('ALTER TABLE markets ADD COLUMN expires_at INTEGER'); } catch {}
 // --- Migration: add is_pinned and pin_order columns if they don't exist ---
 try { db.exec('ALTER TABLE markets ADD COLUMN is_pinned INTEGER NOT NULL DEFAULT 0'); } catch {}
 try { db.exec('ALTER TABLE markets ADD COLUMN pin_order INTEGER NOT NULL DEFAULT 0'); } catch {}
+// --- Migration: add tax_burned column if it doesn't exist ---
+try { db.exec('ALTER TABLE markets ADD COLUMN tax_burned INTEGER NOT NULL DEFAULT 0'); } catch {}
 
 
 // --- Activity Logger ---
@@ -273,6 +277,9 @@ const getUserById = db.prepare('SELECT * FROM users WHERE id = ?');
 const updateMarketPools = db.prepare(
   'UPDATE markets SET yes_pool = yes_pool + ?, no_pool = no_pool + ? WHERE id = ?'
 );
+const accumulateMarketTax = db.prepare(
+  'UPDATE markets SET tax_burned = tax_burned + ? WHERE id = ?'
+);
 const resolveMarket = db.prepare(
   'UPDATE markets SET resolved = 1, resolution = ? WHERE id = ?'
 );
@@ -326,7 +333,8 @@ const getStats = db.prepare(`
     (SELECT COALESCE(SUM(tokens), 0) FROM users) AS total_tokens,
     (SELECT COUNT(*) FROM markets WHERE resolved = 0) AS active_markets,
     (SELECT COUNT(*) FROM markets WHERE resolved = 1) AS resolved_markets,
-    (SELECT COALESCE(SUM(yes_pool + no_pool), 0) FROM markets) AS total_volume
+    (SELECT COALESCE(SUM(yes_pool + no_pool), 0) FROM markets) AS total_volume,
+    (SELECT COALESCE(SUM(tax_burned), 0) FROM markets) AS total_tax_burned
 `);
 
 // --- Create default admin on startup ---
@@ -705,8 +713,12 @@ app.post('/api/bet', requireAuth, (req, res) => {
     const maxBet = Math.floor(user.tokens * 0.2);
     if (betAmount > maxBet) return res.status(400).json({ error: `Maximum bet is ${maxBet} tokens (20% of balance)` });
 
-    // Sufficient balance
-    if (betAmount > user.tokens) return res.status(400).json({ error: 'Insufficient tokens' });
+    // Calculate tax (rounded up)
+    const tax = Math.ceil(betAmount * BET_TAX_RATE);
+    const totalCost = betAmount + tax;
+
+    // Sufficient balance (bet + tax)
+    if (totalCost > user.tokens) return res.status(400).json({ error: 'Insufficient tokens' });
 
     // Atomic bet placement — use a transaction to prevent race conditions
     const placeBetTx = db.transaction(() => {
@@ -719,13 +731,20 @@ app.post('/api/bet', requireAuth, (req, res) => {
       const maxBet = Math.floor(currentUser.tokens * 0.2);
       if (betAmount > maxBet) throw new Error(`Maximum bet is ${maxBet} tokens (20% of balance)`);
 
-      // Deduct tokens
-      updateUserTokens.run(currentUser.tokens - betAmount, currentUser.id);
+      // Calculate tax (rounded up)
+      const tax = Math.ceil(betAmount * BET_TAX_RATE);
+      const totalCost = betAmount + tax;
 
-      // Add to pool
+      // Deduct tokens (bet + tax)
+      updateUserTokens.run(currentUser.tokens - totalCost, currentUser.id);
+
+      // Add to pool (bet amount only, tax is burned)
       const yesAdd = side === 'yes' ? betAmount : 0;
       const noAdd = side === 'no' ? betAmount : 0;
       updateMarketPools.run(yesAdd, noAdd, market_id);
+
+      // Accumulate tax burned on market
+      accumulateMarketTax.run(tax, market_id);
 
       // Record bet
       insertBet.run(currentUser.id, market_id, side, betAmount, Math.floor(Date.now() / 1000));
@@ -738,7 +757,7 @@ app.post('/api/bet', requireAuth, (req, res) => {
 
     logActivity(req.user.user_id, 'place_bet', `Bet ${betAmount} ${side} on market #${market_id}`);
     res.json({
-      bet: { market_id, side, amount: betAmount },
+      bet: { market_id, side, amount: betAmount, tax: Math.ceil(betAmount * BET_TAX_RATE) },
       user: { tokens: updatedUser.tokens },
       market: { yes_pool: updatedMarket.yes_pool, no_pool: updatedMarket.no_pool }
     });

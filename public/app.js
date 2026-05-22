@@ -739,7 +739,7 @@ function renderMarkets(markets, emptyIcon = '📊', emptyText = 'No active marke
           <button class="btn btn-sm btn-yes" onclick="placeBet(${m.id}, 'yes')">Bet Yes</button>
           <button class="btn btn-sm btn-no" onclick="placeBet(${m.id}, 'no')">Bet No</button>
         </div>
-        <span class="bet-hint">Min ${m.min_stake}${m.max_stake ? ` / Max ${m.max_stake}` : ''}</span>
+        <span class="bet-hint">Min ${m.min_stake}${m.max_stake ? ` / Max ${m.max_stake}` : ''} · 3% tax</span>
         <button class="btn btn-primary bet-sheet-trigger" onclick="openBetSheet(${m.id}, ${m.min_stake}, ${m.max_stake || 'null'}, '${esc(m.title)}')">Place Bet</button>`;
 
     const resolveSection = resolved
@@ -1007,7 +1007,9 @@ window.placeBet = async function (marketId, side) {
     currentUser.tokens = data.user.tokens;
     updateUserBar();
     loadMarkets();
-    showToast(`✓ ${amount} on ${side.toUpperCase()} · Balance: ${data.user.tokens.toLocaleString()}`, 'success');
+    const tax = data.bet.tax || 0;
+    const taxMsg = tax > 0 ? ` · ${tax} tax` : '';
+    showToast(`✓ ${amount} on ${side.toUpperCase()}${taxMsg} · Balance: ${data.user.tokens.toLocaleString()}`, 'success');
   } catch (err) {
     showToast(err.message);
   }
@@ -1043,6 +1045,7 @@ window.openBetSheet = function (marketId, minStake, maxStake, title) {
   let hint = 'Min ' + minStake;
   if (maxStake) hint += ' / Max ' + maxStake;
   hint += ' · Max bet: ' + maxBet + ' (20% of balance)';
+  hint += ' · 3% tax';
   $('#bet-sheet-hint').textContent = hint;
   const overlay = $('#bet-sheet-overlay');
   overlay.classList.remove('hidden');
@@ -1069,7 +1072,9 @@ async function submitBetSheet(side) {
     currentUser.tokens = data.user.tokens;
     updateUserBar();
     loadMarkets();
-    showToast(`✓ ${amount} on ${side.toUpperCase()} · Balance: ${data.user.tokens.toLocaleString()}`, 'success');
+    const tax = data.bet.tax || 0;
+    const taxMsg = tax > 0 ? ` · ${tax} tax` : '';
+    showToast(`✓ ${amount} on ${side.toUpperCase()}${taxMsg} · Balance: ${data.user.tokens.toLocaleString()}`, 'success');
     closeBetSheet();
   } catch (err) {
     showToast(err.message);
@@ -1249,6 +1254,7 @@ async function loadAdminStats() {
         <div class="stat-item"><span class="stat-value">${stats.total_bets}</span><span class="stat-label">Bets</span></div>
         <div class="stat-item"><span class="stat-value">${stats.total_volume}</span><span class="stat-label">Volume</span></div>
         <div class="stat-item"><span class="stat-value">${stats.total_tokens}</span><span class="stat-label">Tokens</span></div>
+        <div class="stat-item"><span class="stat-value">${stats.total_tax_burned}</span><span class="stat-label">Tax Burned</span></div>
       `;
     }
   } catch (err) {
