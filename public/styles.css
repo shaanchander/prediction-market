@@ -929,6 +929,21 @@ header {
   font-size: 0.85rem;
   color: var(--text);
 }
+@media (max-width: 640px) {
+  .tags-dropdown {
+    position: fixed;
+    top: auto;
+    left: 8px;
+    right: 8px;
+    bottom: 8px;
+    max-height: 50vh;
+    border-radius: var(--radius);
+  }
+  .tags-dropdown .tag-option {
+    padding: 0.75rem;
+    font-size: 1rem;
+  }
+}
 .tags-dropdown .tag-option:hover,
 .tags-dropdown .tag-option.highlighted {
   background: var(--surface-hover);
