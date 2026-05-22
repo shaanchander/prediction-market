@@ -13,11 +13,14 @@ Open http://localhost:3000
 
 Copy `.env.example` to `.env` and set `JWT_SECRET` and `ADMIN_PASSWORD` before starting. The admin account (`username: admin`) is created automatically on first launch.
 
+> ⚠️ **Note:** If `ADMIN_PASSWORD` contains special characters (`#`, `$`, etc.), wrap the value in single quotes to prevent dotenv from truncating it.
+
 > ⚠️ **Important:** Public registration is disabled. Only admins can create new user accounts via the admin panel.
 
 ## Features
 
 - **Binary Yes/No markets** — Any authenticated user can create markets
+- **Market categories** — Admins create categories with custom colors; filter markets by category
 - **Pari-mutuel betting** — Winners split the opposing pool proportionally
 - **20% per-bet cap** — Maximum bet is 20% of your token balance
 - **Token economy** — 1000 starting tokens, admin top-up grants 50 tokens per user
@@ -74,11 +77,21 @@ All endpoints require a valid JWT Bearer token except `/api/login` and `/api/set
 | GET | `/api/history` | Current user's bet history |
 | GET | `/api/leaderboard` | All users ranked by tokens |
 
+### Categories
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/categories` | List all categories |
+| POST | `/admin/categories` | Create category (admin, body: `{ name, color }`) |
+| DELETE | `/admin/categories/:id` | Delete category (admin, fails if markets exist) |
+| PATCH | `/admin/markets/:id/category` | Assign category to market (admin, body: `{ category_id }`) |
+
 ### Admin
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | GET | `/admin/stats` | Platform statistics |
+| GET | `/admin/categories` | List all categories (admin) |
 | GET | `/admin/users` | List all users |
 | POST | `/admin/users` | Create user (body: `{ username, role }`) |
 | PATCH | `/admin/users/:id` | Change user role |
