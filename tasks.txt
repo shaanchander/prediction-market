@@ -4,7 +4,6 @@
 - categories (different background colour backgrounds)
 - tags
 
-- make the expiry times render years, months, weeks
 - add current staked amount to leaderboard (maybe user profile instead)
 
 - make not a single page app?
@@ -21,3 +20,4 @@ done
 - pinned/featured bets (set by admin)
 - prevent betting on both sides
 - estimated payout when placing bet
+- make the expiry times render years, months, weeks

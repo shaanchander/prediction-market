@@ -1470,6 +1470,8 @@ window.showUserProfile = async function(username) {
     $('#profile-tokens').textContent = data.tokens.toLocaleString();
     $('#profile-total-bets').textContent = data.totalBets;
     $('#profile-open-bets').textContent = data.openBets;
+    $('#profile-staked').textContent = data.currentStaked.toLocaleString();
+    $('#profile-total-staked').textContent = data.totalStaked.toLocaleString();
     $('#profile-record').textContent = `${data.wins}W / ${data.losses}L (${data.winRate}%)`;
     
     const profitEl = $('#profile-profit');

@@ -1170,6 +1170,12 @@ app.get('/api/users/:username', requireAuth, (req, res) => {
     const winRate = resolvedBets.length > 0 ? Math.round((wins / resolvedBets.length) * 100) : 0;
     const netProfit = totalReturned - totalStaked;
 
+    // Calculate current staked amount (bets on unresolved markets)
+    let currentStaked = 0;
+    bets.forEach(b => {
+      if (b.resolved !== 1) currentStaked += b.amount;
+    });
+
     res.json({
       id: user.id,
       username: user.username,
@@ -1177,6 +1183,8 @@ app.get('/api/users/:username', requireAuth, (req, res) => {
       tokens: user.tokens,
       totalBets,
       openBets,
+      currentStaked,
+      totalStaked,
       wins,
       losses,
       winRate,
