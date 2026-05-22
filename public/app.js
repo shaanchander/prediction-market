@@ -856,9 +856,6 @@ function renderMarkets(markets, emptyIcon = '📊', emptyText = 'No active marke
           </div>
         </div>
         <div class="market-meta">
-          <span class="creator-icon">${esc(m.creator_username[0].toUpperCase())}</span>
-          <span class="creator-name clickable-username" data-username="${esc(m.creator_username)}">${esc(m.creator_username)}</span>
-          <span class="market-meta-spacer"></span>
           <span class="market-time">${timeAgoLabel}</span>
         </div>
         <div class="market-card-body">

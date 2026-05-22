@@ -254,7 +254,7 @@ const deleteMarket = db.prepare('DELETE FROM markets WHERE id = ?');
 const updateMarketPin = db.prepare('UPDATE markets SET is_pinned = ?, pin_order = ? WHERE id = ?');
 
 const getActiveMarkets = db.prepare(`
-  SELECT m.*, u.username AS creator_username, c.name AS category_name, c.color AS category_color
+  SELECT m.*, NULL AS creator_username, c.name AS category_name, c.color AS category_color
   FROM markets m 
   JOIN users u ON m.creator_id = u.id 
   LEFT JOIN categories c ON m.category_id = c.id

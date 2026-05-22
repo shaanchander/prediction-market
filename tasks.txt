@@ -1,14 +1,17 @@
-- anonymous bet (maybe when making market as well?)
-- dont show voters until it's closed
 - make markets page more readable on desktop (maybe 2 wide)
 - tags
+- announcements (admin created)
 
+
+maybe
 - make not a single page app?
 - add fake scams for certain users
+- different user roles? restricted to certain categories?
 
 
 cancelled?
 - make bet amount a slider?
+- anonymous bet (maybe when making market as well?)
 
 
 done
@@ -20,3 +23,4 @@ done
 - make the expiry times render years, months, weeks
 - add current staked amount to leaderboard (maybe user profile instead)
 - categories (different background colour backgrounds?)
+- dont show voters until it's closed
