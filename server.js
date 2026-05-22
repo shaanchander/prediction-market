@@ -297,6 +297,7 @@ const getMarketById = db.prepare('SELECT * FROM markets WHERE id = ?');
 const getAllCategories = db.prepare('SELECT * FROM categories ORDER BY name');
 const insertCategory = db.prepare('INSERT INTO categories (name, color, created_at) VALUES (?, ?, ?)');
 const updateMarketCategory = db.prepare('UPDATE markets SET category_id = ? WHERE id = ?');
+const updateCategory = db.prepare('UPDATE categories SET name = ?, color = ? WHERE id = ?');
 const deleteCategory = db.prepare('DELETE FROM categories WHERE id = ?');
 
 const insertBet = db.prepare(
@@ -1332,6 +1333,39 @@ app.delete('/admin/categories/:id', requireAuth, requireAdmin, (req, res) => {
     res.json({ ok: true, name: category.name });
   } catch (err) {
     res.status(500).json({ error: 'Failed to delete category' });
+  }
+});
+
+// --- Update Category (Admin) ---
+app.patch('/admin/categories/:id', requireAuth, requireAdmin, (req, res) => {
+  try {
+    const categoryId = parseInt(req.params.id);
+    const category = db.prepare('SELECT * FROM categories WHERE id = ?').get(categoryId);
+    if (!category) return res.status(404).json({ error: 'Category not found' });
+
+    const { name, color } = req.body;
+    let newName = category.name;
+    let newColor = category.color;
+
+    if (name !== undefined) {
+      if (name.trim().length === 0) return res.status(400).json({ error: 'Category name cannot be empty' });
+      if (name.trim().length > 50) return res.status(400).json({ error: 'Category name must be 50 characters or less' });
+      newName = sanitizeHtml(name).trim();
+    }
+
+    if (color !== undefined) {
+      newColor = /^#[0-9A-Fa-f]{6}$/.test(color) ? color : category.color;
+    }
+
+    updateCategory.run(newName, newColor, categoryId);
+    const updated = db.prepare('SELECT * FROM categories WHERE id = ?').get(categoryId);
+    logActivity(req.user.user_id, 'update_category', `Updated category: ${newName}`);
+    res.json(updated);
+  } catch (err) {
+    if (err.message && err.message.includes('UNIQUE constraint failed')) {
+      return res.status(409).json({ error: 'Category name already exists' });
+    }
+    res.status(500).json({ error: 'Failed to update category' });
   }
 });
 

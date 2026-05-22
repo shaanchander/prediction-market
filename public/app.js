@@ -732,6 +732,14 @@ document.addEventListener('click', (e) => {
     const title = e.target.dataset.marketTitle;
     deleteMarket(marketId, title);
   }
+  // Edit category button
+  if (e.target.classList.contains('edit-category-btn')) {
+    const categoryId = parseInt(e.target.dataset.categoryId);
+    const categoryName = e.target.dataset.categoryName;
+    const categoryColor = e.target.dataset.categoryColor;
+    editCategoryInline(categoryId, categoryName, categoryColor);
+    return;
+  }
   // Delete category button
   if (e.target.classList.contains('delete-category-btn')) {
     const categoryId = parseInt(e.target.dataset.categoryId);
@@ -1770,11 +1778,13 @@ function renderAdminCategories() {
     return;
   }
   container.innerHTML = categoriesList.map(c => {
-    const marketCount = categoriesList.filter(m => m.id === c.id).length;
-    return `<div class="category-admin-row">
+    return `<div class="category-admin-row" data-category-id="${c.id}">
       <span class="category-admin-color" style="background:${c.color}"></span>
       <span class="category-admin-name">${esc(c.name)}</span>
-      <button class="btn btn-sm btn-outline btn-danger-outline delete-category-btn" data-category-id="${c.id}" data-category-name="${esc(c.name)}">Delete</button>
+      <div class="category-admin-actions">
+        <button class="btn btn-sm btn-outline edit-category-btn" data-category-id="${c.id}" data-category-name="${esc(c.name)}" data-category-color="${c.color}">Edit</button>
+        <button class="btn btn-sm btn-outline btn-danger-outline delete-category-btn" data-category-id="${c.id}" data-category-name="${esc(c.name)}">Delete</button>
+      </div>
     </div>`;
   }).join('');
 }
@@ -1789,6 +1799,46 @@ window.deleteCategory = async function(categoryId, categoryName) {
   } catch (err) {
     showToast(err.message);
   }
+};
+
+// --- Admin: Edit Category Inline ---
+window.editCategoryInline = function(categoryId, currentName, currentColor) {
+  const row = document.querySelector(`.category-admin-row[data-category-id="${categoryId}"]`);
+  if (!row) return;
+
+  row.innerHTML = `
+    <span class="category-admin-color" style="background:${currentColor}"></span>
+    <input type="text" class="edit-category-name" value="${esc(currentName)}" minlength="1" maxlength="50" style="flex:1;font-size:0.9rem;" />
+    <input type="color" class="edit-category-color" value="${currentColor}" style="width:36px;height:28px;border:none;padding:0;cursor:pointer;" />
+    <button class="btn btn-sm btn-primary save-category-btn" data-category-id="${categoryId}">Save</button>
+    <button class="btn btn-sm btn-outline cancel-category-btn" data-category-id="${categoryId}">Cancel</button>
+  `;
+
+  const nameInput = row.querySelector('.edit-category-name');
+  nameInput.focus();
+  nameInput.select();
+
+  const saveBtn = row.querySelector('.save-category-btn');
+  saveBtn.onclick = async () => {
+    const newName = nameInput.value.trim();
+    const newColor = row.querySelector('.edit-category-color').value;
+    if (!newName) {
+      showToast('Category name cannot be empty');
+      return;
+    }
+    try {
+      await api(`/admin/categories/${categoryId}`, { method: 'PATCH', body: JSON.stringify({ name: newName, color: newColor }) });
+      showToast('Category updated', 'success');
+      loadCategories();
+    } catch (err) {
+      showToast(err.message);
+    }
+  };
+
+  const cancelBtn = row.querySelector('.cancel-category-btn');
+  cancelBtn.onclick = () => {
+    loadCategories();
+  };
 };
 
 // --- Admin: Create Category ---

@@ -855,6 +855,11 @@ header {
   font-weight: 500;
   font-size: 0.9rem;
 }
+.category-admin-actions {
+  display: flex;
+  gap: 0.4rem;
+  flex-shrink: 0;
+}
 
 /* Market Header Right (badges) */
 .market-header-right {
