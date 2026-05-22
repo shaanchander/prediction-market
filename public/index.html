@@ -414,10 +414,10 @@
       <div class="bet-sheet-body">
         <input type="text" inputmode="numeric" pattern="[0-9]*" id="bet-sheet-amount" placeholder="Amount" autocomplete="off" />
         <div class="quick-bet">
-          <button class="quick-bet-btn" onclick="document.getElementById('bet-sheet-amount').value=10">10</button>
-          <button class="quick-bet-btn" onclick="document.getElementById('bet-sheet-amount').value=50">50</button>
-          <button class="quick-bet-btn" onclick="document.getElementById('bet-sheet-amount').value=100">100</button>
-          <button class="quick-bet-btn quick-bet-max" onclick="document.getElementById('bet-sheet-amount').value=Math.floor(currentUser.tokens*0.2)">Max</button>
+          <button class="quick-bet-btn" onclick="setSheetPct(1)">1%</button>
+          <button class="quick-bet-btn" onclick="setSheetPct(5)">5%</button>
+          <button class="quick-bet-btn" onclick="setSheetPct(10)">10%</button>
+          <button class="quick-bet-btn quick-bet-max" onclick="setSheetPct(20)">20%</button>
         </div>
         <span class="bet-hint" id="bet-sheet-hint"></span>
         <div class="bet-sheet-actions">

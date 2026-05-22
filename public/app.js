@@ -723,10 +723,10 @@ function renderMarkets(markets, emptyIcon = '📊', emptyText = 'No active marke
         <div class="bet-row">
           <input type="number" id="bet-amount-${m.id}" min="${m.min_stake}" placeholder="Amount" />
           <div class="quick-bet">
-            <button class="quick-bet-btn" onclick="document.getElementById('bet-amount-${m.id}').value=10">10</button>
-            <button class="quick-bet-btn" onclick="document.getElementById('bet-amount-${m.id}').value=50">50</button>
-            <button class="quick-bet-btn" onclick="document.getElementById('bet-amount-${m.id}').value=100">100</button>
-            <button class="quick-bet-btn quick-bet-max" onclick="document.getElementById('bet-amount-${m.id}').value=Math.floor(currentUser.tokens*0.2)">Max</button>
+            <button class="quick-bet-btn" onclick="setPct(${m.id}, 1)">1%</button>
+            <button class="quick-bet-btn" onclick="setPct(${m.id}, 5)">5%</button>
+            <button class="quick-bet-btn" onclick="setPct(${m.id}, 10)">10%</button>
+            <button class="quick-bet-btn quick-bet-max" onclick="setPct(${m.id}, 20)">20%</button>
           </div>
           <button class="btn btn-sm btn-yes" onclick="placeBet(${m.id}, 'yes')">Bet Yes</button>
           <button class="btn btn-sm btn-no" onclick="placeBet(${m.id}, 'no')">Bet No</button>
@@ -961,6 +961,19 @@ window.deleteMarket = async function (marketId, title) {
   } catch (err) {
     showToast(err.message);
   }
+};
+
+// --- Quick Bet Percentage Helpers ---
+window.setPct = function (marketId, pct) {
+  const maxBet = Math.floor(currentUser.tokens * (pct / 100));
+  const min = parseInt(document.getElementById(`bet-amount-${marketId}`).min) || 1;
+  document.getElementById(`bet-amount-${marketId}`).value = Math.max(min, maxBet);
+};
+
+window.setSheetPct = function (pct) {
+  const maxBet = Math.floor(currentUser.tokens * (pct / 100));
+  const min = parseInt($('#bet-sheet-amount').min) || 1;
+  $('#bet-sheet-amount').value = Math.max(min, maxBet);
 };
 
 // --- Place Bet ---
