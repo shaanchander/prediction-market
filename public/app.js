@@ -57,7 +57,7 @@ function updateMarketsInPlace(markets) {
     // Update probability bar
     const yesPct = poolPercent(m.yes_pool, m.no_pool, 'yes');
     const noPct = poolPercent(m.yes_pool, m.no_pool, 'no');
-    const barYes = card.querySelector('.probability-bar-yes');
+    const barYes = card.querySelector('.market-probability-bar-yes');
     if (barYes) barYes.style.width = yesPct + '%';
 
     const probYes = card.querySelector('.prob-yes');
@@ -65,11 +65,11 @@ function updateMarketsInPlace(markets) {
     const probNo = card.querySelector('.prob-no');
     if (probNo) probNo.textContent = `No ${noPct}%`;
 
-    // Update pool amounts
-    const poolYes = card.querySelector('.pool-yes .pool-amount');
-    if (poolYes) poolYes.textContent = m.yes_pool;
-    const poolNo = card.querySelector('.pool-no .pool-amount');
-    if (poolNo) poolNo.textContent = m.no_pool;
+    // Update pool amounts (compact format: "🟢 10" / "🔴 50")
+    const poolYes = card.querySelector('.pool-yes-compact');
+    if (poolYes) poolYes.textContent = `🟢 ${m.yes_pool}`;
+    const poolNo = card.querySelector('.pool-no-compact');
+    if (poolNo) poolNo.textContent = `🔴 ${m.no_pool}`;
 
     // Update bet count badge
     const badge = card.querySelector('.bet-count-badge');
@@ -88,6 +88,28 @@ function updateMarketsInPlace(markets) {
         else if (expiryInfo.urgent) expiryBadge.classList.add('expiry-urgent');
         else expiryBadge.classList.add('expiry-active');
       }
+    }
+
+    // Update user position ("You bet X tokens on YES/NO")
+    const userPosEl = card.querySelector('.user-position');
+    if (userPosEl) {
+      const bet = userBetsMap[m.id];
+      if (bet) {
+        const sideClass = bet.yes >= bet.no ? 'yes' : 'no';
+        const parts = [];
+        if (bet.yes > 0) parts.push(`${bet.yes} tokens on YES`);
+        if (bet.no > 0) parts.push(`${bet.no} tokens on NO`);
+        userPosEl.className = `user-position user-position-${sideClass}`;
+        userPosEl.textContent = `You bet ${parts.join(', ')}`;
+      }
+    }
+
+    // Update voters toggle text
+    const votersToggle = card.querySelector('.voters-toggle');
+    if (votersToggle) {
+      votersToggle.textContent = m.bet_count > 0
+        ? `👥 See voters (${m.bet_count})`
+        : '👥 See voters';
     }
   });
 
