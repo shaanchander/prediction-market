@@ -76,6 +76,19 @@ function updateMarketsInPlace(markets) {
     if (badge) {
       badge.textContent = m.bet_count + (m.bet_count !== 1 ? ' bets' : ' bet');
     }
+
+    // Update expiry text
+    if (m.expires_at) {
+      const expiryInfo = formatExpiry(m.expires_at);
+      const expiryBadge = card.querySelector('.expiry-badge');
+      if (expiryBadge && expiryInfo) {
+        expiryBadge.textContent = expiryInfo.text;
+        expiryBadge.className = 'expiry-badge';
+        if (expiryInfo.expired) expiryBadge.classList.add('expiry-expired');
+        else if (expiryInfo.urgent) expiryBadge.classList.add('expiry-urgent');
+        else expiryBadge.classList.add('expiry-active');
+      }
+    }
   });
 
   // Check if markets were added or removed — full re-render if count mismatch
