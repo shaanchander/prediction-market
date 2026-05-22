@@ -44,6 +44,64 @@ input, textarea, select {
   font-size: 16px !important;
 }
 
+/* Custom select styling */
+select {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  background-color: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+  padding: 0.45rem 2rem 0.45rem 0.75rem;
+  outline: none;
+  cursor: pointer;
+  transition: border-color 0.15s;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23888' d='M6 8.825L.35 3.175l.7-.7L6 7.425l4.95-4.95.7.7z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.65rem center;
+}
+select:focus {
+  border-color: var(--primary);
+}
+select:hover {
+  border-color: var(--primary);
+}
+select:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Override specific select styles */
+.admin-users-toolbar select,
+.markets-filters select,
+#admin-market-select {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  background-color: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+  padding: 0.45rem 2rem 0.45rem 0.75rem;
+  outline: none;
+  cursor: pointer;
+  transition: border-color 0.15s;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23888' d='M6 8.825L.35 3.175l.7-.7L6 7.425l4.95-4.95.7.7z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.65rem center;
+}
+.admin-users-toolbar select:focus,
+.markets-filters select:focus,
+#admin-market-select:focus {
+  border-color: var(--primary);
+}
+.admin-users-toolbar select:hover,
+.markets-filters select:hover,
+#admin-market-select:hover {
+  border-color: var(--primary);
+}
+
 /* Safe area insets for notched phones */
 header {
   padding-top: max(0.75rem, env(safe-area-inset-top));
