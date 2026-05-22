@@ -694,6 +694,7 @@ function renderMarkets(markets, emptyIcon = '📊', emptyText = 'No active marke
             <button class="quick-bet-btn" onclick="document.getElementById('bet-amount-${m.id}').value=10">10</button>
             <button class="quick-bet-btn" onclick="document.getElementById('bet-amount-${m.id}').value=50">50</button>
             <button class="quick-bet-btn" onclick="document.getElementById('bet-amount-${m.id}').value=100">100</button>
+            <button class="quick-bet-btn quick-bet-max" onclick="document.getElementById('bet-amount-${m.id}').value=Math.floor(currentUser.tokens*0.2)">Max</button>
           </div>
           <button class="btn btn-sm btn-yes" onclick="placeBet(${m.id}, 'yes')">Bet Yes</button>
           <button class="btn btn-sm btn-no" onclick="placeBet(${m.id}, 'no')">Bet No</button>
