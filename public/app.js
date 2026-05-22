@@ -746,11 +746,11 @@ function renderMarkets(markets, emptyIcon = '📊', emptyText = 'No active marke
             <button class="quick-bet-btn" onclick="setPct(${m.id}, 10)">10%</button>
             <button class="quick-bet-btn quick-bet-max" onclick="setPct(${m.id}, 20)">20%</button>
           </div>
-          <button class="btn btn-sm btn-yes" onclick="placeBet(${m.id}, 'yes')">Bet Yes</button>
-          <button class="btn btn-sm btn-no" onclick="placeBet(${m.id}, 'no')">Bet No</button>
+          <button class="btn btn-sm btn-yes" onclick="placeBet(${m.id}, 'yes', ${m.yes_pool}, ${m.no_pool})">Bet Yes</button>
+          <button class="btn btn-sm btn-no" onclick="placeBet(${m.id}, 'no', ${m.yes_pool}, ${m.no_pool})">Bet No</button>
         </div>
         <span class="bet-hint">Min ${m.min_stake}${m.max_stake ? ` / Max ${m.max_stake}` : ''} · 3% tax</span>
-        <button class="btn btn-primary bet-sheet-trigger" onclick="openBetSheet(${m.id}, ${m.min_stake}, ${m.max_stake || 'null'}, '${esc(m.title)}')">Place Bet</button>`;
+        <button class="btn btn-primary bet-sheet-trigger" onclick="openBetSheet(${m.id}, ${m.min_stake}, ${m.max_stake || 'null'}, '${esc(m.title)}', ${m.yes_pool}, ${m.no_pool})">Place Bet</button>`;
 
     const resolveSection = resolved
       ? ''
@@ -1007,19 +1007,37 @@ window.setSheetPct = function (pct) {
 };
 
 // --- Bet Confirmation ---
-function confirmBet(amount, side) {
+function confirmBet(amount, side, yesPool, noPool) {
   return new Promise((resolve) => {
     const tax = Math.ceil(amount * 0.03);
     const total = amount + tax;
     const confirmResolveBet = resolve;
     window.confirmResolveBet = confirmResolveBet;
     $('#confirm-modal-title').textContent = 'Confirm Bet';
+
+    // Calculate estimated payout
+    const winningPool = side === 'yes' ? yesPool : noPool;
+    const losingPool = side === 'yes' ? noPool : yesPool;
+    let payoutLine = '';
+    if (winningPool + losingPool > 0) {
+      const totalWinners = winningPool + amount;
+      if (totalWinners > 0) {
+        const share = Math.floor((amount / totalWinners) * losingPool);
+        const totalPayout = amount + share;
+        const profitPct = ((share / amount) * 100).toFixed(1);
+        payoutLine = `
+          <div class="bet-confirm-row bet-confirm-payout"><span>Est. Payout:</span><span>${totalPayout} tokens (+${profitPct}% profit)</span></div>
+        `;
+      }
+    }
+
     $('#confirm-modal-message').innerHTML = `
       <div class="bet-confirm-breakdown">
         <div class="bet-confirm-row"><span>Bet:</span><span>${amount} tokens</span></div>
         <div class="bet-confirm-row"><span>Tax (3%):</span><span>${tax} tokens</span></div>
         <div class="bet-confirm-row bet-confirm-total"><span>Total:</span><span>${total} tokens</span></div>
         <div class="bet-confirm-side">Side: <strong>${side.toUpperCase()}</strong></div>
+        ${payoutLine}
       </div>
     `;
     show($('#confirm-modal'));
@@ -1029,12 +1047,12 @@ function confirmBet(amount, side) {
 }
 
 // --- Place Bet ---
-window.placeBet = async function (marketId, side) {
+window.placeBet = async function (marketId, side, yesPool, noPool) {
   const input = $(`#bet-amount-${marketId}`);
   const amount = parseInt(input.value);
   if (!amount || amount <= 0) return showToast('Enter a valid amount');
 
-  const confirmed = await confirmBet(amount, side);
+  const confirmed = await confirmBet(amount, side, yesPool, noPool);
   if (!confirmed) return;
 
   try {
@@ -1071,8 +1089,10 @@ async function loadUserBetsMap() {
   } catch {}
 }
 
-window.openBetSheet = function (marketId, minStake, maxStake, title) {
+window.openBetSheet = function (marketId, minStake, maxStake, title, yesPool, noPool) {
   currentBetMarketId = marketId;
+  window.currentBetYesPool = yesPool;
+  window.currentBetNoPool = noPool;
   $('#bet-sheet-title').textContent = title || 'Place Bet';
   $('#bet-sheet-amount').min = minStake;
   $('#bet-sheet-amount').value = '';
@@ -1103,7 +1123,7 @@ async function submitBetSheet(side) {
   const amount = parseInt($('#bet-sheet-amount').value);
   if (!amount || amount <= 0) return showToast('Enter a valid amount');
 
-  const confirmed = await confirmBet(amount, side);
+  const confirmed = await confirmBet(amount, side, window.currentBetYesPool || 0, window.currentBetNoPool || 0);
   if (!confirmed) return;
 
   try {

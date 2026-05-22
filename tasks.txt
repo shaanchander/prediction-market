@@ -1,16 +1,16 @@
 - anonymous bet (maybe when making market as well?)
 - dont show voters until it's closed
-- add fake scams for certain users
 - make markets page more readable on desktop (maybe 2 wide)
 - categories (different background colour backgrounds)
 - tags
 
-- prevent betting on both sides
 - make the expiry times render years, months, weeks
 - add current staked amount to leaderboard (maybe user profile instead)
 - estimated payout when placing bet
 
 - make not a single page app?
+- add fake scams for certain users
+
 
 cancelled?
 - make bet amount a slider?
@@ -20,3 +20,4 @@ done
 - make quick bets percentages
 - make total bets on either side more clear (emojis currently)
 - pinned/featured bets (set by admin)
+- prevent betting on both sides
