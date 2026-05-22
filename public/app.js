@@ -642,8 +642,10 @@ function renderMarketActions(m) {
   if (m.resolved === 1) return '';
   const expiresAtStr = m.expires_at ? new Date(m.expires_at * 1000).toISOString().slice(0, 16) : '';
   // Use data attributes instead of onclick to avoid XSS via inline handlers
+  const pinLabel = m.is_pinned ? 'Unpin' : 'Pin';
   return `
     <div class="market-actions">
+      <button class="btn btn-sm btn-outline action-btn pin-market-btn" data-market-id="${m.id}" data-pinned="${m.is_pinned ? '1' : '0'}">📌 ${pinLabel}</button>
       <button class="btn btn-sm btn-outline action-btn edit-market-btn" data-market-id="${m.id}" data-market-title="${esc(m.title)}" data-market-desc="${esc(m.description)}" data-market-expires="${esc(expiresAtStr)}">Edit</button>
       <button class="btn btn-sm btn-outline action-btn btn-danger-outline delete-market-btn" data-market-id="${m.id}" data-market-title="${esc(m.title)}">Delete</button>
     </div>`;
@@ -657,6 +659,12 @@ document.addEventListener('click', (e) => {
     const description = e.target.dataset.marketDesc;
     const expiresAt = e.target.dataset.marketExpires;
     editMarket(marketId, title, description, expiresAt);
+  }
+  if (e.target.classList.contains('pin-market-btn')) {
+    const marketId = parseInt(e.target.dataset.marketId);
+    const pinned = e.target.dataset.pinned === '1';
+    togglePin(marketId, pinned);
+    return;
   }
   if (e.target.classList.contains('delete-market-btn')) {
     const marketId = parseInt(e.target.dataset.marketId);
@@ -746,10 +754,11 @@ function renderMarkets(markets, emptyIcon = '📊', emptyText = 'No active marke
     const betCountBadge = m.bet_count > 0 ? `<span class="bet-count-badge">${m.bet_count} bet${m.bet_count !== 1 ? 's' : ''}</span>` : '';
     const timeAgoLabel = m.created_at ? timeAgo(m.created_at) : '';
 
+    const pinIcon = m.is_pinned ? '<span class="pin-icon">📌</span> ' : '';
     return `
       <div class="market-card" data-market-id="${m.id}">
         <div class="market-header">
-          <span class="market-title">${esc(m.title)}</span>
+          <span class="market-title">${pinIcon}${esc(m.title)}</span>
           <div class="market-header-right">
             ${betCountBadge}
             ${expiryBadge}
@@ -958,6 +967,17 @@ window.deleteMarket = async function (marketId, title) {
     await api(`/api/markets/${marketId}`, { method: 'DELETE' });
     loadMarkets();
     showToast('Market deleted', 'success');
+  } catch (err) {
+    showToast(err.message);
+  }
+};
+
+// --- Toggle Pin ---
+window.togglePin = async function (marketId, currentlyPinned) {
+  try {
+    await api(`/api/markets/${marketId}/pin`, { method: 'PATCH', body: JSON.stringify({ pinned: !currentlyPinned }) });
+    loadMarkets();
+    showToast(currentlyPinned ? 'Market unpinned' : 'Market pinned', 'success');
   } catch (err) {
     showToast(err.message);
   }
@@ -1501,10 +1521,11 @@ function renderMarketsLegacy(markets, emptyText = 'No resolved markets yet') {
       : '';
     const betCountBadge = m.bet_count > 0 ? `<span class="bet-count-badge">${m.bet_count} bet${m.bet_count !== 1 ? 's' : ''}</span>` : '';
     const timeAgoLabel = m.created_at ? timeAgo(m.created_at) : '';
+    const pinIcon = m.is_pinned ? '<span class="pin-icon">📌</span> ' : '';
     return `
       <div class="market-card">
         <div class="market-header">
-          <span class="market-title">${esc(m.title)}</span>
+          <span class="market-title">${pinIcon}${esc(m.title)}</span>
           <div class="market-header-right">
             ${betCountBadge}
             ${expiryBadge}

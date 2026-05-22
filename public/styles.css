@@ -811,6 +811,12 @@ header {
   flex-shrink: 0;
 }
 
+/* Pin Icon */
+.pin-icon {
+  margin-right: 0.2rem;
+  font-size: 0.9em;
+}
+
 /* Market Time */
 .market-meta-spacer { flex: 1; }
 .market-time {

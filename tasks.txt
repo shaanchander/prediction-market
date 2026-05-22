@@ -16,3 +16,4 @@ done
 
 - make quick bets percentages
 - make total bets on either side more clear (emojis currently)
+- pinned/featured bets (set by admin)

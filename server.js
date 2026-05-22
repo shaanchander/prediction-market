@@ -157,6 +157,8 @@ db.exec(`
     resolved INTEGER NOT NULL DEFAULT 0,
     resolution TEXT CHECK(resolution IN ('yes', 'no', NULL)),
     expires_at INTEGER,
+    is_pinned INTEGER NOT NULL DEFAULT 0,
+    pin_order INTEGER NOT NULL DEFAULT 0,
     created_at INTEGER NOT NULL,
     FOREIGN KEY (creator_id) REFERENCES users(id)
   );
@@ -186,6 +188,9 @@ db.exec(`
 try { db.exec('ALTER TABLE users ADD COLUMN must_set_password INTEGER NOT NULL DEFAULT 0'); } catch {}
 // --- Migration: add expires_at column if it doesn't exist ---
 try { db.exec('ALTER TABLE markets ADD COLUMN expires_at INTEGER'); } catch {}
+// --- Migration: add is_pinned and pin_order columns if they don't exist ---
+try { db.exec('ALTER TABLE markets ADD COLUMN is_pinned INTEGER NOT NULL DEFAULT 0'); } catch {}
+try { db.exec('ALTER TABLE markets ADD COLUMN pin_order INTEGER NOT NULL DEFAULT 0'); } catch {}
 
 
 // --- Activity Logger ---
@@ -228,33 +233,34 @@ const updateMarket = db.prepare(
   'UPDATE markets SET title = ?, description = ?, expires_at = ? WHERE id = ?'
 );
 const deleteMarket = db.prepare('DELETE FROM markets WHERE id = ?');
+const updateMarketPin = db.prepare('UPDATE markets SET is_pinned = ?, pin_order = ? WHERE id = ?');
 
 const getActiveMarkets = db.prepare(`
   SELECT m.*, u.username AS creator_username 
   FROM markets m 
   JOIN users u ON m.creator_id = u.id 
   WHERE m.resolved = 0 AND (m.expires_at IS NULL OR m.expires_at > ?)
-  ORDER BY m.created_at DESC
+  ORDER BY m.is_pinned DESC, m.pin_order ASC, m.created_at DESC
 `);
 const getResolvedMarkets = db.prepare(`
   SELECT m.*, u.username AS creator_username 
   FROM markets m 
   JOIN users u ON m.creator_id = u.id 
   WHERE m.resolved = 1
-  ORDER BY m.created_at DESC
+  ORDER BY m.is_pinned DESC, m.pin_order ASC, m.created_at DESC
 `);
 const getAllMarkets = db.prepare(`
   SELECT m.*, u.username AS creator_username 
   FROM markets m 
   JOIN users u ON m.creator_id = u.id 
-  ORDER BY m.created_at DESC
+  ORDER BY m.is_pinned DESC, m.pin_order ASC, m.created_at DESC
 `);
 const searchMarkets = db.prepare(`
   SELECT m.*, u.username AS creator_username 
   FROM markets m 
   JOIN users u ON m.creator_id = u.id 
   WHERE m.title LIKE ? OR m.description LIKE ?
-  ORDER BY m.created_at DESC
+  ORDER BY m.is_pinned DESC, m.pin_order ASC, m.created_at DESC
 `);
 const getMarketById = db.prepare('SELECT * FROM markets WHERE id = ?');
 
@@ -587,6 +593,31 @@ app.delete('/api/markets/:id', requireAuth, (req, res) => {
     res.json({ ok: true, title: market.title });
   } catch (err) {
     res.status(500).json({ error: 'Failed to delete market' });
+  }
+});
+
+// --- Market Pin/Unpin Endpoint (admin only) ---
+app.patch('/api/markets/:id/pin', requireAuth, requireAdmin, (req, res) => {
+  try {
+    const marketId = parseInt(req.params.id);
+    const { pinned } = req.body;
+
+    const market = getMarketById.get(marketId);
+    if (!market) return res.status(404).json({ error: 'Market not found' });
+
+    // If pinning, get the current max pin_order and add 1
+    let pinOrder = 0;
+    if (pinned) {
+      const maxOrder = db.prepare('SELECT COALESCE(MAX(pin_order), -1) as max_val FROM markets').get();
+      pinOrder = maxOrder.max_val + 1;
+    }
+
+    updateMarketPin.run(pinned ? 1 : 0, pinOrder, marketId);
+    const updated = getMarketById.get(marketId);
+    logActivity(req.user.user_id, pinned ? 'pin_market' : 'unpin_market', `${pinned ? 'Pinned' : 'Unpinned'} market: ${updated.title}`);
+    res.json(updated);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to update pin status' });
   }
 });
 
