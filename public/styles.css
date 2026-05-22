@@ -1783,6 +1783,40 @@ button:disabled {
   min-width: 80px;
 }
 
+/* Bet Confirmation Breakdown */
+.bet-confirm-breakdown {
+  background: var(--bg);
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+  margin: 0.5rem 0;
+}
+.bet-confirm-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 0.25rem 0;
+  font-size: 0.9rem;
+}
+.bet-confirm-row span:first-child {
+  color: var(--text-dim);
+}
+.bet-confirm-total {
+  border-top: 1px solid var(--border);
+  margin-top: 0.25rem;
+  padding-top: 0.5rem;
+  font-weight: 700;
+  font-size: 1rem;
+}
+.bet-confirm-side {
+  text-align: center;
+  margin-top: 0.5rem;
+  font-size: 0.9rem;
+  color: var(--text-dim);
+}
+.bet-confirm-side strong {
+  color: var(--text);
+  font-size: 1rem;
+}
+
 /* Prompt modal textarea */
 #prompt-modal-textarea {
   width: 100%;

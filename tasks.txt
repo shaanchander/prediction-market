@@ -4,7 +4,6 @@
 - make markets page more readable (maybe 2 wide)
 - categories (different background colour backgrounds)
 - tags
-- add tax (so we can add tokens without big inflation)
 
 
 

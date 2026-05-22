@@ -190,7 +190,17 @@ function showConfirmModal(title, message) {
 
 $('#confirm-modal-ok').addEventListener('click', () => {
   hide($('#confirm-modal'));
-  if (confirmResolve) { confirmResolve(true); confirmResolve = null; }
+  $('#confirm-modal-ok').textContent = 'Confirm';
+  // Check bet resolver first, then fall back to standard resolver
+  if (window.confirmResolveBet) { window.confirmResolveBet(true); window.confirmResolveBet = null; }
+  else if (confirmResolve) { confirmResolve(true); confirmResolve = null; }
+});
+
+$('#confirm-modal-cancel').addEventListener('click', () => {
+  hide($('#confirm-modal'));
+  $('#confirm-modal-ok').textContent = 'Confirm';
+  if (window.confirmResolveBet) { window.confirmResolveBet(false); window.confirmResolveBet = null; }
+  else if (confirmResolve) { confirmResolve(false); confirmResolve = null; }
 });
 
 $('#confirm-modal-cancel').addEventListener('click', () => {
@@ -996,11 +1006,36 @@ window.setSheetPct = function (pct) {
   $('#bet-sheet-amount').value = Math.max(min, maxBet);
 };
 
+// --- Bet Confirmation ---
+function confirmBet(amount, side) {
+  return new Promise((resolve) => {
+    const tax = Math.ceil(amount * 0.03);
+    const total = amount + tax;
+    const confirmResolveBet = resolve;
+    window.confirmResolveBet = confirmResolveBet;
+    $('#confirm-modal-title').textContent = 'Confirm Bet';
+    $('#confirm-modal-message').innerHTML = `
+      <div class="bet-confirm-breakdown">
+        <div class="bet-confirm-row"><span>Bet:</span><span>${amount} tokens</span></div>
+        <div class="bet-confirm-row"><span>Tax (3%):</span><span>${tax} tokens</span></div>
+        <div class="bet-confirm-row bet-confirm-total"><span>Total:</span><span>${total} tokens</span></div>
+        <div class="bet-confirm-side">Side: <strong>${side.toUpperCase()}</strong></div>
+      </div>
+    `;
+    show($('#confirm-modal'));
+    $('#confirm-modal-ok').textContent = `Bet ${total} tokens`;
+    $('#confirm-modal-ok').focus();
+  });
+}
+
 // --- Place Bet ---
 window.placeBet = async function (marketId, side) {
   const input = $(`#bet-amount-${marketId}`);
   const amount = parseInt(input.value);
   if (!amount || amount <= 0) return showToast('Enter a valid amount');
+
+  const confirmed = await confirmBet(amount, side);
+  if (!confirmed) return;
 
   try {
     const data = await api('/api/bet', { method: 'POST', body: JSON.stringify({ market_id: marketId, side, amount }) });
@@ -1067,6 +1102,10 @@ window.closeBetSheet = function () {
 async function submitBetSheet(side) {
   const amount = parseInt($('#bet-sheet-amount').value);
   if (!amount || amount <= 0) return showToast('Enter a valid amount');
+
+  const confirmed = await confirmBet(amount, side);
+  if (!confirmed) return;
+
   try {
     const data = await api('/api/bet', { method: 'POST', body: JSON.stringify({ market_id: currentBetMarketId, side, amount }) });
     currentUser.tokens = data.user.tokens;
