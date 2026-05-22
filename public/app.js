@@ -1764,33 +1764,135 @@ async function loadTags() {
   }
 }
 
-// --- Tags Input Handler ---
+// --- Tags Selector with Dropdown ---
+let tagDropdownHighlight = -1;
+
 function initTagsInput() {
   const input = $('#market-tags-input');
-  if (!input) return;
+  const dropdown = $('#tags-dropdown');
+  if (!input || !dropdown) return;
 
+  // Show dropdown on focus
+  input.addEventListener('focus', () => {
+    tagDropdownHighlight = -1;
+    filterAndShowTags(input.value.trim());
+  });
+
+  // Filter dropdown on input
+  input.addEventListener('input', () => {
+    tagDropdownHighlight = -1;
+    filterAndShowTags(input.value.trim());
+  });
+
+  // Keyboard navigation
   input.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter' || e.key === ',') {
+    const options = dropdown.querySelectorAll('.tag-option');
+    if (e.key === 'ArrowDown') {
       e.preventDefault();
-      const val = input.value.trim().replace(/,/g, '');
-      if (val && !selectedTags.includes(val)) {
-        selectedTags.push(val);
-        renderSelectedTags();
-      }
-      input.value = '';
-    }
-    if (e.key === 'Backspace' && !input.value && selectedTags.length > 0) {
+      tagDropdownHighlight = Math.min(tagDropdownHighlight + 1, options.length - 1);
+      updateHighlight(options);
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      tagDropdownHighlight = Math.max(tagDropdownHighlight - 1, 0);
+      updateHighlight(options);
+    } else if (e.key === 'Enter' && tagDropdownHighlight >= 0) {
+      e.preventDefault();
+      selectTagOption(options[tagDropdownHighlight].dataset.tagName, options[tagDropdownHighlight].dataset.isCreate === 'true');
+    } else if (e.key === 'Escape') {
+      hide(dropdown);
+    } else if (e.key === 'Backspace' && !input.value && selectedTags.length > 0) {
       selectedTags.pop();
       renderSelectedTags();
     }
   });
+
+  // Close dropdown when clicking outside
+  document.addEventListener('click', (e) => {
+    if (!e.target.closest('.tags-selector-wrap')) {
+      hide(dropdown);
+    }
+  });
+}
+
+function updateHighlight(options) {
+  options.forEach((opt, i) => {
+    opt.classList.toggle('highlighted', i === tagDropdownHighlight);
+  });
+}
+
+function filterAndShowTags(query) {
+  const dropdown = $('#tags-dropdown');
+  if (!dropdown) return;
+
+  const q = query.toLowerCase().trim();
+  let matched = [];
+
+  if (q) {
+    // Filter existing tags that match the query
+    matched = availableTags.filter(t =>
+      !selectedTags.includes(t.name) && t.name.toLowerCase().includes(q)
+    ).slice(0, 8);
+
+    // Add "Create" option if query doesn't exactly match an existing tag
+    const exactMatch = availableTags.some(t => t.name.toLowerCase() === q);
+    if (!exactMatch) {
+      matched.push({ name: query, isCreate: true, marketCount: 0 });
+    }
+  } else {
+    // Show all available tags (not already selected)
+    matched = availableTags.filter(t => !selectedTags.includes(t.name)).slice(0, 10);
+  }
+
+  if (matched.length === 0) {
+    hide(dropdown);
+    return;
+  }
+
+  dropdown.innerHTML = matched.map(t => {
+    if (t.isCreate) {
+      return `<div class="tag-option create-option" data-tag-name="${esc(t.name)}" data-is-create="true">+ Create "${esc(t.name)}"</div>`;
+    }
+    return `<div class="tag-option" data-tag-name="${esc(t.name)}" data-is-create="false">${esc(t.name)}<span class="tag-count">${t.marketCount} market${t.marketCount !== 1 ? 's' : ''}</span></div>`;
+  }).join('');
+
+  // Click handlers
+  dropdown.querySelectorAll('.tag-option').forEach(opt => {
+    opt.addEventListener('click', () => {
+      selectTagOption(opt.dataset.tagName, opt.dataset.isCreate === 'true');
+    });
+  });
+
+  show(dropdown);
+}
+
+function selectTagOption(name, isCreate) {
+  const input = $('#market-tags-input');
+  const dropdown = $('#tags-dropdown');
+
+  if (isCreate) {
+    // Create new tag
+    if (!selectedTags.includes(name)) {
+      selectedTags.push(name);
+      renderSelectedTags();
+    }
+  } else {
+    // Select existing tag
+    if (!selectedTags.includes(name)) {
+      selectedTags.push(name);
+      renderSelectedTags();
+    }
+  }
+
+  input.value = '';
+  hide(dropdown);
+  input.focus();
 }
 
 function renderSelectedTags() {
-  const container = $('#market-tags-container');
+  const container = $('#market-tags-selected');
   if (!container) return;
   container.innerHTML = selectedTags.map((t, i) =>
-    `<span class="tag-badge tag-badge-editable">${esc(t)}<button type="button" class="tag-remove-btn" data-index="${i}">×</button></span>`
+    `<span class="tag-badge">${esc(t)}<button type="button" class="tag-remove-btn" data-index="${i}">×</button></span>`
   ).join('');
 
   container.querySelectorAll('.tag-remove-btn').forEach(btn => {
@@ -1803,10 +1905,12 @@ function renderSelectedTags() {
 
 function clearTagsInput() {
   selectedTags = [];
-  const container = $('#market-tags-container');
+  const container = $('#market-tags-selected');
   if (container) container.innerHTML = '';
   const input = $('#market-tags-input');
   if (input) input.value = '';
+  const dropdown = $('#tags-dropdown');
+  if (dropdown) hide(dropdown);
 }
 
 function populateCategoryDropdowns() {
@@ -1922,6 +2026,55 @@ window.editCategoryInline = function(categoryId, currentName, currentColor) {
   };
 };
 
+// --- Admin: Create Tag ---
+$('#create-tag-form')?.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const name = $('#tag-name').value.trim();
+  try {
+    await api('/admin/tags', { method: 'POST', body: JSON.stringify({ name }) });
+    flashMsg($('#create-tag-msg'), `Tag "${name}" added!`, 'success');
+    $('#create-tag-form').reset();
+    await loadTags();
+    renderAdminTagsList();
+  } catch (err) {
+    flashMsg($('#create-tag-msg'), err.message);
+  }
+});
+
+// --- Admin: Render Tags List ---
+function renderAdminTagsList() {
+  const container = $('#tags-admin-list');
+  if (!container || !currentUser || currentUser.role !== 'admin') return;
+
+  container.innerHTML = availableTags.map(t => `
+    <div class="tag-admin-item" data-tag-id="${t.id}">
+      <span class="tag-admin-name">${esc(t.name)}</span>
+      <span class="tag-admin-count">${t.marketCount} market${t.marketCount !== 1 ? 's' : ''}</span>
+      <div class="tag-admin-actions">
+        <button class="btn btn-sm btn-outline rename-tag-btn" data-tag-id="${t.id}" data-tag-name="${esc(t.name)}">Rename</button>
+      </div>
+    </div>
+  `).join('');
+
+  // Rename button handlers
+  container.querySelectorAll('.rename-tag-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const tagId = parseInt(btn.dataset.tagId);
+      const currentName = btn.dataset.tagName;
+      const newName = await showPromptModal('Rename Tag', `Rename "${currentName}" to:`, currentName);
+      if (newName === null || newName.trim() === currentName) return;
+      try {
+        await api(`/admin/tags/${tagId}`, { method: 'PATCH', body: JSON.stringify({ name: newName.trim() }) });
+        showToast('Tag renamed', 'success');
+        loadTags();
+        renderAdminTagsList();
+      } catch (err) {
+        showToast(err.message);
+      }
+    });
+  });
+}
+
 // --- Admin: Create Category ---
 $('#create-category-form')?.addEventListener('submit', async (e) => {
   e.preventDefault();
@@ -1975,6 +2128,8 @@ function navigateTo(page) {
     loadAdminMarketSelect();
     loadActivityLog();
     loadCategories();
+    loadTags();
+    renderAdminTagsList();
   }
 }
 

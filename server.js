@@ -965,10 +965,58 @@ app.get('/api/history', requireAuth, (req, res) => {
 // --- Tags Endpoints ---
 app.get('/api/tags', requireAuth, (_req, res) => {
   try {
-    const allTags = db.prepare('SELECT id, name FROM tags ORDER BY name').all();
+    const allTags = db.prepare(`
+      SELECT t.id, t.name, COUNT(mt.market_id) as marketCount 
+      FROM tags t 
+      LEFT JOIN market_tags mt ON t.id = mt.tag_id 
+      GROUP BY t.id 
+      ORDER BY t.name
+    `).all();
     res.json(allTags);
   } catch (err) {
     res.status(500).json({ error: 'Failed to fetch tags' });
+  }
+});
+
+// Admin: Create a new tag
+app.post('/admin/tags', requireAuth, requireAdmin, (req, res) => {
+  try {
+    const { name } = req.body;
+    if (!name || !name.trim()) return res.status(400).json({ error: 'Tag name required' });
+    const cleanName = sanitizeHtml(name.trim());
+    if (cleanName.length > 50) return res.status(400).json({ error: 'Tag name too long' });
+    
+    const inserted = db.prepare('INSERT INTO tags (name) VALUES (?)').run(cleanName);
+    logActivity(req.user.user_id, 'create_tag', `Created tag: ${cleanName}`);
+    res.json({ id: inserted.lastInsertRowid, name: cleanName });
+  } catch (err) {
+    if (err.message && err.message.includes('UNIQUE')) {
+      return res.status(409).json({ error: 'Tag already exists' });
+    }
+    res.status(500).json({ error: 'Failed to create tag' });
+  }
+});
+
+// Admin: Rename a tag
+app.patch('/admin/tags/:id', requireAuth, requireAdmin, (req, res) => {
+  try {
+    const tagId = parseInt(req.params.id);
+    const { name } = req.body;
+    if (!name || !name.trim()) return res.status(400).json({ error: 'Tag name required' });
+    const cleanName = sanitizeHtml(name.trim());
+    if (cleanName.length > 50) return res.status(400).json({ error: 'Tag name too long' });
+    
+    const existing = db.prepare('SELECT id, name FROM tags WHERE id = ?').get(tagId);
+    if (!existing) return res.status(404).json({ error: 'Tag not found' });
+    
+    db.prepare('UPDATE tags SET name = ? WHERE id = ?').run(cleanName, tagId);
+    logActivity(req.user.user_id, 'rename_tag', `Renamed tag "${existing.name}" to "${cleanName}"`);
+    res.json({ id: tagId, name: cleanName });
+  } catch (err) {
+    if (err.message && err.message.includes('UNIQUE')) {
+      return res.status(409).json({ error: 'Tag already exists' });
+    }
+    res.status(500).json({ error: 'Failed to rename tag' });
   }
 });
 

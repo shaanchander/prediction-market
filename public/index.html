@@ -119,10 +119,13 @@
               </select>
             </div>
             <div class="form-group">
-              <label for="market-tags">Tags (optional — type & press Enter to add)</label>
-              <div class="tags-input-wrap">
-                <div id="market-tags-container" class="tags-container"></div>
-                <input type="text" id="market-tags-input" class="tags-input" placeholder="e.g. Bitcoin, Elections, AI" autocomplete="off" />
+              <label for="market-tags-input">Tags (optional)</label>
+              <div class="tags-selector-wrap">
+                <div id="market-tags-selected" class="tags-selected"></div>
+                <div class="tags-search-wrap">
+                  <input type="text" id="market-tags-input" class="tags-search-input" placeholder="Search or create tags..." autocomplete="off" />
+                  <div id="tags-dropdown" class="tags-dropdown hidden"></div>
+                </div>
               </div>
             </div>
             <div class="form-group">
@@ -174,6 +177,22 @@
         </div>
         <div class="form-msg" id="admin-msg"></div>
         <div id="backup-status" class="backup-status"></div>
+
+        <hr class="admin-divider" />
+
+        <h3 class="admin-section-title">Tags</h3>
+        <p class="admin-hint">Manage available tags. Add new tags or rename existing ones so users can select them when creating markets.</p>
+        <form id="create-tag-form">
+          <div class="form-row">
+            <div class="form-group">
+              <label for="tag-name">Tag Name</label>
+              <input type="text" id="tag-name" required minlength="1" maxlength="50" placeholder="e.g. Politics, Economy, Health" />
+            </div>
+          </div>
+          <button type="submit" class="btn btn-primary">Add Tag</button>
+          <div class="form-msg" id="create-tag-msg"></div>
+        </form>
+        <div id="tags-admin-list" class="tags-admin-list"></div>
 
         <hr class="admin-divider" />
 
