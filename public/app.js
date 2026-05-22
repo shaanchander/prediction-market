@@ -1290,10 +1290,13 @@ async function loadAdminMarketSelect() {
   }
 }
 
-// --- Admin: Load bets for selected market ---
-$('#admin-load-bets-btn').addEventListener('click', async () => {
+// --- Admin: Auto-load bets when market selected ---
+$('#admin-market-select').addEventListener('change', async () => {
   const marketId = $('#admin-market-select').value;
-  if (!marketId) return showToast('Select a market first');
+  if (!marketId) {
+    hide($('#admin-bets-container'));
+    return;
+  }
   try {
     const data = await api(`/admin/markets/${marketId}/bets`);
     $('#admin-bets-market-title').textContent = data.market_title;
@@ -1450,8 +1453,8 @@ function renderLeaderboardSorted() {
         const rank = i < 3 ? medals[i] : `#${i + 1}`;
         const isCurrentUser = currentUser && currentUser.id === u.id;
         const highlight = isCurrentUser ? ' highlight' : '';
-        const profitClass = u.netProfit >= 0 ? 'stats-positive' : 'stats-negative';
-        const profitStr = (u.netProfit >= 0 ? '+' : '') + u.netProfit;
+        const profitClass = u.netProfit > 0 ? 'stats-positive' : (u.netProfit < 0 ? 'stats-negative' : '');
+        const profitStr = u.wins + u.losses > 0 ? (u.netProfit > 0 ? '+' : '') + u.netProfit : '—';
         const wrClass = u.winRate >= 60 ? 'stats-positive' : (u.winRate < 40 && u.wins + u.losses > 0 ? 'stats-negative' : '');
         return `
           <div class="leaderboard-table-row${highlight}">

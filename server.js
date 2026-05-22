@@ -1150,11 +1150,17 @@ app.post('/admin/markets/:id/refund-and-delete', requireAuth, requireAdmin, (req
     const bets = getBetsForMarketWithUserId.all(marketId);
     let refundedCount = 0;
 
-    // Refund each bet
+    // Refund each bet and remove from pools
     for (const bet of bets) {
       const user = getUserById.get(bet.user_id);
       if (user) {
         updateUserTokens.run(user.tokens + bet.amount, bet.user_id);
+        // Remove from pool
+        if (bet.side === 'yes') {
+          updateMarketPoolDown.run(bet.amount, 0, bet.market_id);
+        } else {
+          updateMarketPoolDown.run(0, bet.amount, bet.market_id);
+        }
         refundedCount++;
       }
     }
