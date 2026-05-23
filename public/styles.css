@@ -2343,8 +2343,9 @@ button:disabled {
   flex-shrink: 0;
   color: var(--text-dim);
   font-size: 0.75rem;
-  min-width: 60px;
+  width: 55px;
   font-variant-numeric: tabular-nums;
+  text-align: left;
 }
 
 .activity-log-action {
@@ -2352,19 +2353,25 @@ button:disabled {
   font-weight: 600;
   font-size: 0.75rem;
   text-transform: uppercase;
-  min-width: 90px;
+  width: 175px;
   letter-spacing: 0.03em;
+  text-align: left;
 }
 
 .activity-log-actor {
   flex-shrink: 0;
   font-weight: 500;
-  min-width: 80px;
+  width: 100px;
+  text-align: left;
 }
 
 .activity-log-details {
   flex: 1;
   color: var(--text-dim);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .activity-log-load-more {
