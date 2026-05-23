@@ -1167,15 +1167,26 @@ app.delete('/admin/users/:id', requireAuth, requireAdmin, (req, res) => {
       if (cnt <= 1) return res.status(400).json({ error: 'Cannot delete the last admin' });
     }
 
-    // Delete markets created by this user (unresolved only — resolved markets are history)
-    const deleteMarketsByUser = db.prepare('DELETE FROM markets WHERE creator_id = ? AND resolved = 0');
-    deleteMarketsByUser.run(userId);
-
     const username = user.username;
-    deleteUser.run(userId);
+
+    // Disable FK checks temporarily to avoid cascade issues
+    db.pragma('foreign_keys = OFF');
+    try {
+      // Remove all FK references before deleting user
+      db.prepare('DELETE FROM dismissed_announcements WHERE user_id = ?').run(userId);
+      db.prepare('DELETE FROM bets WHERE user_id = ?').run(userId);
+      db.prepare('DELETE FROM markets WHERE creator_id = ?').run(userId);
+      db.prepare('DELETE FROM announcements WHERE creator_id = ?').run(userId);
+      db.prepare('DELETE FROM activity_log WHERE user_id = ?').run(userId);
+
+      deleteUser.run(userId);
+    } finally {
+      db.pragma('foreign_keys = ON');
+    }
     logActivity(req.user.user_id, 'delete_user', `Deleted user ${username}`);
     res.json({ ok: true, username });
   } catch (err) {
+    console.error('Delete user error:', err.message);
     res.status(500).json({ error: 'Failed to delete user' });
   }
 });

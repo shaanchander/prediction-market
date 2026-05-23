@@ -1,6 +1,8 @@
 - make markets page more readable on desktop (maybe 2 wide)
 - announcements (admin created)
 
+- fake ads for worst performer of the week
+
 
 maybe
 - make not a single page app?
