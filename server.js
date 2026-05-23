@@ -140,7 +140,7 @@ db.pragma('foreign_keys = ON');
 db.exec(`
   CREATE TABLE IF NOT EXISTS users (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    username TEXT UNIQUE NOT NULL,
+    username TEXT UNIQUE NOT NULL COLLATE NOCASE,
     password_hash TEXT,
     role TEXT NOT NULL DEFAULT 'user' CHECK(role IN ('user', 'admin')),
     tokens INTEGER NOT NULL DEFAULT 1000,
@@ -234,6 +234,33 @@ try { db.exec(`CREATE TABLE IF NOT EXISTS market_tags (
 // --- Migration: create tags tables if they don't exist ---
 try { db.exec('CREATE TABLE IF NOT EXISTS tags (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT UNIQUE NOT NULL COLLATE NOCASE)'); } catch {}
 try { db.exec('CREATE TABLE IF NOT EXISTS market_tags (market_id INTEGER NOT NULL, tag_id INTEGER NOT NULL, PRIMARY KEY (market_id, tag_id), FOREIGN KEY (market_id) REFERENCES markets(id) ON DELETE CASCADE, FOREIGN KEY (tag_id) REFERENCES tags(id) ON DELETE CASCADE)'); } catch {}
+
+// --- Migration: make username case-insensitive (recreate table with COLLATE NOCASE) ---
+try {
+  const schema = db.prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='users'").get();
+  if (schema && !schema.sql.includes('COLLATE NOCASE')) {
+    db.pragma('foreign_keys = OFF');
+    try { db.exec('DROP TABLE IF EXISTS users_new'); } catch {}
+    db.exec(`
+      CREATE TABLE users_new (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        username TEXT UNIQUE NOT NULL COLLATE NOCASE,
+        password_hash TEXT,
+        role TEXT NOT NULL DEFAULT 'user' CHECK(role IN ('user', 'admin')),
+        tokens INTEGER NOT NULL DEFAULT 1000,
+        must_set_password INTEGER NOT NULL DEFAULT 0
+      );
+      INSERT INTO users_new SELECT * FROM users;
+      DROP TABLE users;
+      ALTER TABLE users_new RENAME TO users;
+    `);
+    db.pragma('foreign_keys = ON');
+    console.log('Migrated users table to case-insensitive usernames');
+  }
+} catch (err) {
+  db.pragma('foreign_keys = ON');
+  console.log('Username case-insensitive migration skipped:', err.message);
+}
 
 // --- Migration: announcements + dismissed_announcements tables ---
 try { db.exec(`CREATE TABLE IF NOT EXISTS announcements (
