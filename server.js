@@ -380,6 +380,9 @@ const updateMarketPools = db.prepare(
 const accumulateMarketTax = db.prepare(
   'UPDATE markets SET tax_burned = tax_burned + ? WHERE id = ?'
 );
+const updateMarketTaxBurnedDown = db.prepare(
+  'UPDATE markets SET tax_burned = tax_burned - ? WHERE id = ?'
+);
 const resolveMarket = db.prepare(
   'UPDATE markets SET resolved = 1, resolution = ? WHERE id = ?'
 );
@@ -884,7 +887,13 @@ app.post('/api/bet', requireAuth, (req, res) => {
       // Re-read user tokens inside the transaction to prevent race conditions
       const currentUser = getUserById.get(req.user.user_id);
       if (!currentUser) throw new Error('User not found');
-      if (currentUser.tokens < betAmount) throw new Error('Insufficient tokens');
+
+      // Calculate tax (rounded up)
+      const tax = Math.ceil(betAmount * BET_TAX_RATE);
+      const totalCost = betAmount + tax;
+
+      // Sufficient balance (bet + tax) — checked inside transaction
+      if (currentUser.tokens < totalCost) throw new Error('Insufficient tokens');
 
       // 20% cap — checked inside transaction to prevent race condition bypass
       const maxBet = Math.floor(currentUser.tokens * 0.2);
@@ -896,10 +905,6 @@ app.post('/api/bet', requireAuth, (req, res) => {
       const hasNo = existingBets.some(b => b.side === 'no');
       if (side === 'yes' && hasNo) throw new Error(`You already bet NO on this market. You can't bet on both sides.`);
       if (side === 'no' && hasYes) throw new Error(`You already bet YES on this market. You can't bet on both sides.`);
-
-      // Calculate tax (rounded up)
-      const tax = Math.ceil(betAmount * BET_TAX_RATE);
-      const totalCost = betAmount + tax;
 
       // Deduct tokens (bet + tax)
       updateUserTokens.run(currentUser.tokens - totalCost, currentUser.id);
@@ -1360,10 +1365,14 @@ app.post('/admin/bets/:id/refund', requireAuth, requireAdmin, (req, res) => {
     if (!market) return res.status(404).json({ error: 'Market not found' });
     if (market.resolved) return res.status(400).json({ error: 'Cannot refund bets on a resolved market' });
 
-    // Refund tokens to user
+    // Refund tokens to user (bet + tax)
     const user = getUserById.get(bet.user_id);
     if (!user) return res.status(404).json({ error: 'User not found' });
-    updateUserTokens.run(user.tokens + bet.amount, bet.user_id);
+    const tax = Math.ceil(bet.amount * BET_TAX_RATE);
+    updateUserTokens.run(user.tokens + bet.amount + tax, bet.user_id);
+
+    // Decrement tax_burned on the market
+    updateMarketTaxBurnedDown.run(tax, bet.market_id);
 
     // Remove bet from pool
     if (bet.side === 'yes') {
@@ -1375,8 +1384,8 @@ app.post('/admin/bets/:id/refund', requireAuth, requireAdmin, (req, res) => {
     // Delete the bet
     deleteBet.run(betId);
 
-    logActivity(req.user.user_id, 'refund_bet', `Refunded ${bet.amount} tokens to ${user.username} on market #${bet.market_id}`);
-    res.json({ ok: true, refunded: bet.amount, username: user.username });
+    logActivity(req.user.user_id, 'refund_bet', `Refunded ${bet.amount + tax} tokens (${bet.amount} bet + ${tax} tax) to ${user.username} on market #${bet.market_id}`);
+    res.json({ ok: true, refunded: bet.amount + tax, bet: bet.amount, tax, username: user.username });
   } catch (err) {
     res.status(500).json({ error: 'Failed to refund bet' });
   }
@@ -1462,11 +1471,16 @@ app.post('/admin/markets/:id/refund-and-delete', requireAuth, requireAdmin, (req
     const bets = getBetsForMarketWithUserId.all(marketId);
     let refundedCount = 0;
 
-    // Refund each bet and remove from pools
+    // Refund each bet and remove from pools (bet + tax)
+    let totalTaxRefunded = 0;
     for (const bet of bets) {
       const user = getUserById.get(bet.user_id);
       if (user) {
-        updateUserTokens.run(user.tokens + bet.amount, bet.user_id);
+        const tax = Math.ceil(bet.amount * BET_TAX_RATE);
+        updateUserTokens.run(user.tokens + bet.amount + tax, bet.user_id);
+        // Decrement tax_burned on the market
+        updateMarketTaxBurnedDown.run(tax, bet.market_id);
+        totalTaxRefunded += tax;
         // Remove from pool
         if (bet.side === 'yes') {
           updateMarketPoolDown.run(bet.amount, 0, bet.market_id);
