@@ -2265,7 +2265,14 @@ async function loadAdminAnnouncements() {
 }
 
 async function deleteAdminAnnouncement(id) {
-  if (!confirm('Delete this announcement?')) return;
+  const okBtn = $('#confirm-modal-ok');
+  okBtn.textContent = 'Delete';
+  okBtn.classList.remove('btn-primary');
+  okBtn.classList.add('btn-danger-outline');
+  const ok = await showConfirmModal('Delete Announcement', 'This will permanently delete this announcement for all users. Continue?');
+  okBtn.classList.remove('btn-danger-outline');
+  okBtn.classList.add('btn-primary');
+  if (!ok) return;
   try {
     await api(`/admin/announcements/${id}`, { method: 'DELETE' });
     loadAdminAnnouncements();
