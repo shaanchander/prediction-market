@@ -235,6 +235,22 @@ try { db.exec(`CREATE TABLE IF NOT EXISTS market_tags (
 try { db.exec('CREATE TABLE IF NOT EXISTS tags (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT UNIQUE NOT NULL COLLATE NOCASE)'); } catch {}
 try { db.exec('CREATE TABLE IF NOT EXISTS market_tags (market_id INTEGER NOT NULL, tag_id INTEGER NOT NULL, PRIMARY KEY (market_id, tag_id), FOREIGN KEY (market_id) REFERENCES markets(id) ON DELETE CASCADE, FOREIGN KEY (tag_id) REFERENCES tags(id) ON DELETE CASCADE)'); } catch {}
 
+// --- Migration: announcements + dismissed_announcements tables ---
+try { db.exec(`CREATE TABLE IF NOT EXISTS announcements (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  message TEXT NOT NULL,
+  creator_id INTEGER NOT NULL,
+  created_at INTEGER NOT NULL,
+  FOREIGN KEY (creator_id) REFERENCES users(id)
+)`); } catch {}
+try { db.exec(`CREATE TABLE IF NOT EXISTS dismissed_announcements (
+  user_id INTEGER NOT NULL,
+  announcement_id INTEGER NOT NULL,
+  PRIMARY KEY (user_id, announcement_id),
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+  FOREIGN KEY (announcement_id) REFERENCES announcements(id) ON DELETE CASCADE
+)`); } catch {}
+
 
 // --- Activity Logger ---
 const insertActivityLog = db.prepare(
@@ -1549,6 +1565,92 @@ app.get('/api/categories', requireAuth, (_req, res) => {
     res.json(categories);
   } catch (err) {
     res.status(500).json({ error: 'Failed to fetch categories' });
+  }
+});
+
+// --- Announcement Endpoints ---
+// Get active announcements (not dismissed by current user)
+app.get('/api/announcements', requireAuth, (req, res) => {
+  try {
+    const rows = db.prepare(`
+      SELECT a.*, u.username AS creator_username
+      FROM announcements a
+      JOIN users u ON a.creator_id = u.id
+      WHERE a.id NOT IN (
+        SELECT announcement_id FROM dismissed_announcements WHERE user_id = ?
+      )
+      ORDER BY a.created_at DESC
+    `).all(req.user.user_id);
+    res.json(rows);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch announcements' });
+  }
+});
+
+// Dismiss an announcement for current user
+app.post('/api/announcements/:id/dismiss', requireAuth, (req, res) => {
+  try {
+    const announcementId = parseInt(req.params.id);
+    const announcement = db.prepare('SELECT id FROM announcements WHERE id = ?').get(announcementId);
+    if (!announcement) return res.status(404).json({ error: 'Announcement not found' });
+
+    db.prepare('INSERT OR IGNORE INTO dismissed_announcements (user_id, announcement_id) VALUES (?, ?)').run(
+      req.user.user_id, announcementId
+    );
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to dismiss announcement' });
+  }
+});
+
+// Admin: create announcement
+app.post('/admin/announcements', requireAuth, requireAdmin, (req, res) => {
+  try {
+    const { message } = req.body;
+    if (!message || !message.trim()) return res.status(400).json({ error: 'Message is required' });
+    const cleanMessage = sanitizeHtml(message.trim());
+    if (cleanMessage.length > 1000) return res.status(400).json({ error: 'Message must be 1000 characters or less' });
+
+    const result = db.prepare(
+      'INSERT INTO announcements (message, creator_id, created_at) VALUES (?, ?, ?)'
+    ).run(cleanMessage, req.user.user_id, Math.floor(Date.now() / 1000));
+
+    const announcement = db.prepare('SELECT a.*, u.username AS creator_username FROM announcements a JOIN users u ON a.creator_id = u.id WHERE a.id = ?').get(result.lastInsertRowid);
+    logActivity(req.user.user_id, 'create_announcement', `Created announcement`);
+    res.status(201).json(announcement);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to create announcement' });
+  }
+});
+
+// Admin: delete announcement
+app.delete('/admin/announcements/:id', requireAuth, requireAdmin, (req, res) => {
+  try {
+    const announcementId = parseInt(req.params.id);
+    const announcement = db.prepare('SELECT id FROM announcements WHERE id = ?').get(announcementId);
+    if (!announcement) return res.status(404).json({ error: 'Announcement not found' });
+
+    // CASCADE will clean up dismissed_announcements
+    db.prepare('DELETE FROM announcements WHERE id = ?').run(announcementId);
+    logActivity(req.user.user_id, 'delete_announcement', `Deleted announcement #${announcementId}`);
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to delete announcement' });
+  }
+});
+
+// Admin: list all announcements
+app.get('/admin/announcements', requireAuth, requireAdmin, (_req, res) => {
+  try {
+    const rows = db.prepare(`
+      SELECT a.*, u.username AS creator_username
+      FROM announcements a
+      JOIN users u ON a.creator_id = u.id
+      ORDER BY a.created_at DESC
+    `).all();
+    res.json(rows);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch announcements' });
   }
 });
 

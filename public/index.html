@@ -16,6 +16,11 @@
     <button class="btn-close" id="network-banner-close">✕</button>
   </div>
 
+  <!-- Announcements Banner -->
+  <div id="announcements-banner" class="announcements-banner hidden">
+    <div id="announcements-list" class="announcements-list"></div>
+  </div>
+
   <header>
     <div class="header-inner">
       <h1>🎯 Prediction Markets</h1>
@@ -288,6 +293,20 @@
         <button type="submit" class="btn btn-primary">Grant Tokens</button>
         <div class="form-msg" id="grant-tokens-msg"></div>
       </form>
+
+      <hr class="admin-divider" />
+
+      <h3 class="admin-section-title">Announcements</h3>
+      <p class="admin-hint">Post announcements that show as banners at the top of the page for all users.</p>
+      <form id="create-announcement-form">
+        <div class="form-group">
+          <label for="announcement-message">Message</label>
+          <textarea id="announcement-message" required maxlength="1000" rows="2" placeholder="Announcement text..."></textarea>
+        </div>
+        <button type="submit" class="btn btn-primary">Post Announcement</button>
+        <div class="form-msg" id="create-announcement-msg"></div>
+      </form>
+      <div id="admin-announcements-list" class="admin-announcements-list"></div>
 
       <hr class="admin-divider" />
 

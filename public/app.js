@@ -2130,6 +2130,7 @@ function navigateTo(page) {
     loadCategories();
     loadTags();
     renderAdminTagsList();
+    loadAdminAnnouncements();
   }
 }
 
@@ -2165,6 +2166,7 @@ function onAuth() {
   loadCategories();
   loadTags();
   initTagsInput();
+  loadAnnouncements();
   navigateTo('markets');
   startPolling();
 
@@ -2189,8 +2191,106 @@ function onLogout() {
   hide($('#user-bar'));
   hide($('#nav-bar'));
   $$('.page').forEach((section) => hide(section));
+  hide($('#announcements-banner'));
   pendingUsername = null;
 }
+
+// --- Announcements ---
+async function loadAnnouncements() {
+  if (!token || !currentUser) return;
+  try {
+    const announcements = await api('/api/announcements');
+    if (announcements.length === 0) {
+      hide($('#announcements-banner'));
+      document.body.classList.remove('announcements-visible');
+      document.documentElement.style.setProperty('--banner-height', '0px');
+      return;
+    }
+    const list = $('#announcements-list');
+    list.innerHTML = announcements.map(a => `
+      <div class="announcement-item" data-announcement-id="${a.id}">
+        <span class="announcement-icon">📢</span>
+        <div class="announcement-content">
+          <div class="announcement-message">${esc(a.message)}</div>
+          <div class="announcement-meta">by ${esc(a.creator_username)} · ${timeAgo(a.created_at)}</div>
+        </div>
+        <button class="announcement-dismiss" onclick="dismissAnnouncement(${a.id})" title="Dismiss">✕</button>
+      </div>
+    `).join('');
+    show($('#announcements-banner'));
+    document.body.classList.add('announcements-visible');
+    const bannerEl = $('#announcements-banner');
+    document.documentElement.style.setProperty('--banner-height', bannerEl.offsetHeight + 'px');
+  } catch {}
+}
+
+async function dismissAnnouncement(id) {
+  try {
+    await api(`/api/announcements/${id}/dismiss`, { method: 'POST' });
+    const item = document.querySelector(`.announcement-item[data-announcement-id="${id}"]`);
+    if (item) item.remove();
+    if ($('#announcements-list').children.length === 0) {
+      hide($('#announcements-banner'));
+      document.body.classList.remove('announcements-visible');
+      document.documentElement.style.setProperty('--banner-height', '0px');
+    } else {
+      const bannerEl = $('#announcements-banner');
+      document.documentElement.style.setProperty('--banner-height', bannerEl.offsetHeight + 'px');
+    }
+  } catch (err) {
+    showToast(err.message, 'error');
+  }
+}
+
+// --- Admin Announcements ---
+async function loadAdminAnnouncements() {
+  if (!token || currentUser.role !== 'admin') return;
+  try {
+    const announcements = await api('/admin/announcements');
+    const list = $('#admin-announcements-list');
+    if (announcements.length === 0) {
+      list.innerHTML = '<p class="admin-hint" style="margin-top:0.5rem">No announcements yet.</p>';
+      return;
+    }
+    list.innerHTML = announcements.map(a => `
+      <div class="admin-announcement-item">
+        <span class="announcement-message">${esc(a.message)}</span>
+        <span class="announcement-meta">${timeAgo(a.created_at)}</span>
+        <button class="btn btn-sm btn-danger-outline btn-delete-announcement" onclick="deleteAdminAnnouncement(${a.id})">Delete</button>
+      </div>
+    `).join('');
+  } catch (err) {
+    console.error('Failed to load admin announcements:', err);
+  }
+}
+
+async function deleteAdminAnnouncement(id) {
+  if (!confirm('Delete this announcement?')) return;
+  try {
+    await api(`/admin/announcements/${id}`, { method: 'DELETE' });
+    loadAdminAnnouncements();
+    loadAnnouncements();
+    showToast('Announcement deleted', 'success');
+  } catch (err) {
+    showToast(err.message, 'error');
+  }
+}
+
+// Create announcement form
+$('#create-announcement-form')?.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const message = $('#announcement-message').value.trim();
+  const msgEl = $('#create-announcement-msg');
+  try {
+    await api('/admin/announcements', { method: 'POST', body: JSON.stringify({ message }) });
+    $('#announcement-message').value = '';
+    flashMsg(msgEl, 'Announcement posted', 'success');
+    loadAdminAnnouncements();
+    loadAnnouncements();
+  } catch (err) {
+    flashMsg(msgEl, err.message);
+  }
+});
 
 // --- Init ---
 async function init() {
