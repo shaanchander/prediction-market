@@ -1525,9 +1525,8 @@ app.delete('/admin/categories/:id', requireAuth, requireAdmin, (req, res) => {
     const category = db.prepare('SELECT * FROM categories WHERE id = ?').get(categoryId);
     if (!category) return res.status(404).json({ error: 'Category not found' });
 
-    // Check if any markets use this category
-    const marketCount = db.prepare('SELECT COUNT(*) AS cnt FROM markets WHERE category_id = ?').get(categoryId);
-    if (marketCount.cnt > 0) return res.status(400).json({ error: 'Cannot delete category with existing markets' });
+    // Un-categorize markets that use this category
+    db.prepare('UPDATE markets SET category_id = NULL WHERE category_id = ?').run(categoryId);
 
     deleteCategory.run(categoryId);
     logActivity(req.user.user_id, 'delete_category', `Deleted category: ${category.name}`);
