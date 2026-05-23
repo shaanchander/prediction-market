@@ -1477,7 +1477,10 @@ app.post('/admin/markets/:id/refund-and-delete', requireAuth, requireAdmin, (req
       }
     }
 
-    // Delete the market (CASCADE will delete all bets)
+    // Delete bets first (FK constraint on existing DBs may not have CASCADE)
+    db.prepare('DELETE FROM bets WHERE market_id = ?').run(marketId);
+
+    // Delete the market
     deleteMarket.run(marketId);
 
     logActivity(req.user.user_id, 'refund_and_delete', `Refunded ${refundedCount} bets and deleted market: ${market.title}`);

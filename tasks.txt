@@ -3,6 +3,8 @@
 
 - fake ads for worst performer of the week
 
+- fix time picker for new market on desktop
+
 
 maybe
 - make not a single page app?
