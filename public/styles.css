@@ -114,39 +114,36 @@ header {
   padding: 0.25rem;
 }
 
-/* Announcements Banner */
+/* Announcements Banner — container for floating alerts */
 .announcements-banner {
   position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  z-index: 100;
-  background: rgba(26, 29, 39, 0.95);
-  backdrop-filter: blur(12px);
-  border-bottom: 1px solid var(--border);
-  animation: slideDown 0.2s ease-out;
-  max-height: 200px;
-  overflow-y: auto;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 90;
+  width: calc(100% - 3rem);
+  max-width: 960px;
+  margin: 0 auto;
+  pointer-events: none;
 }
 .announcements-list {
-  max-width: 900px;
-  margin: 0 auto;
-  padding: 0.5rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
 }
 .announcement-item {
   display: flex;
   align-items: flex-start;
   gap: 0.5rem;
-  padding: 0.5rem 0.75rem;
-  background: rgba(108, 92, 231, 0.1);
+  padding: 0.55rem 0.75rem;
+  background: var(--surface);
   border: 1px solid rgba(108, 92, 231, 0.25);
-  border-radius: 8px;
-  margin-bottom: 0.35rem;
+  border-radius: var(--radius);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
   font-size: 0.85rem;
   line-height: 1.4;
-  animation: fadeIn 0.2s ease-out;
+  animation: slideDown 0.2s ease-out;
+  pointer-events: auto;
 }
-.announcement-item:last-child { margin-bottom: 0; }
 .announcement-icon {
   flex-shrink: 0;
   font-size: 1rem;
@@ -220,9 +217,6 @@ header {
   top: 0;
   z-index: 50;
   transition: top 0.2s ease;
-}
-body.announcements-visible header {
-  top: var(--banner-height, 0px);
 }
 body.announcements-visible .container {
   padding-top: 0.5rem;

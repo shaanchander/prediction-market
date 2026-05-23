@@ -2203,7 +2203,6 @@ async function loadAnnouncements() {
     if (announcements.length === 0) {
       hide($('#announcements-banner'));
       document.body.classList.remove('announcements-visible');
-      document.documentElement.style.setProperty('--banner-height', '0px');
       return;
     }
     const list = $('#announcements-list');
@@ -2219,10 +2218,19 @@ async function loadAnnouncements() {
     `).join('');
     show($('#announcements-banner'));
     document.body.classList.add('announcements-visible');
-    const bannerEl = $('#announcements-banner');
-    document.documentElement.style.setProperty('--banner-height', bannerEl.offsetHeight + 'px');
+    positionAnnouncementsBanner();
   } catch {}
 }
+
+function positionAnnouncementsBanner() {
+  const header = document.querySelector('header');
+  const banner = $('#announcements-banner');
+  if (!header || !banner) return;
+  const headerHeight = header.offsetHeight + 8;
+  banner.style.top = headerHeight + 'px';
+}
+
+window.addEventListener('resize', positionAnnouncementsBanner);
 
 async function dismissAnnouncement(id) {
   try {
@@ -2232,10 +2240,8 @@ async function dismissAnnouncement(id) {
     if ($('#announcements-list').children.length === 0) {
       hide($('#announcements-banner'));
       document.body.classList.remove('announcements-visible');
-      document.documentElement.style.setProperty('--banner-height', '0px');
     } else {
-      const bannerEl = $('#announcements-banner');
-      document.documentElement.style.setProperty('--banner-height', bannerEl.offsetHeight + 'px');
+      positionAnnouncementsBanner();
     }
   } catch (err) {
     showToast(err.message, 'error');
