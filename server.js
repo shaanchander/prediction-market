@@ -1639,15 +1639,17 @@ app.delete('/admin/announcements/:id', requireAuth, requireAdmin, (req, res) => 
   }
 });
 
-// Admin: list all announcements
+// Admin: list all announcements (only those from the last week)
 app.get('/admin/announcements', requireAuth, requireAdmin, (_req, res) => {
   try {
+    const oneWeekAgo = Math.floor(Date.now() / 1000) - 7 * 24 * 60 * 60;
     const rows = db.prepare(`
       SELECT a.*, u.username AS creator_username
       FROM announcements a
       JOIN users u ON a.creator_id = u.id
+      WHERE a.created_at >= ?
       ORDER BY a.created_at DESC
-    `).all();
+    `).all(oneWeekAgo);
     res.json(rows);
   } catch (err) {
     res.status(500).json({ error: 'Failed to fetch announcements' });
