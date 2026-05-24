@@ -2072,6 +2072,7 @@ function renderAdminTagsList() {
       <span class="tag-admin-count">${t.marketCount} market${t.marketCount !== 1 ? 's' : ''}</span>
       <div class="tag-admin-actions">
         <button class="btn btn-sm btn-outline rename-tag-btn" data-tag-id="${t.id}" data-tag-name="${esc(t.name)}">Rename</button>
+        <button class="btn btn-sm btn-outline btn-danger-outline delete-tag-btn" data-tag-id="${t.id}" data-tag-name="${esc(t.name)}">Delete</button>
       </div>
     </div>
   `).join('');
@@ -2087,6 +2088,24 @@ function renderAdminTagsList() {
         await api(`/admin/tags/${tagId}`, { method: 'PATCH', body: JSON.stringify({ name: newName.trim() }) });
         showToast('Tag renamed', 'success');
         loadTags();
+        renderAdminTagsList();
+      } catch (err) {
+        showToast(err.message);
+      }
+    });
+  });
+
+  // Delete button handlers
+  container.querySelectorAll('.delete-tag-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const tagId = parseInt(btn.dataset.tagId);
+      const tagName = btn.dataset.tagName;
+      const confirmed = await showConfirmModal('Delete Tag', `Delete tag "${esc(tagName)}"? It will be removed from all markets.`);
+      if (!confirmed) return;
+      try {
+        await api(`/admin/tags/${tagId}`, { method: 'DELETE' });
+        showToast('Tag deleted', 'success');
+        await loadTags();
         renderAdminTagsList();
       } catch (err) {
         showToast(err.message);

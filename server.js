@@ -1079,6 +1079,23 @@ app.patch('/admin/tags/:id', requireAuth, requireAdmin, (req, res) => {
   }
 });
 
+// Admin: Delete a tag (removes from all markets first)
+app.delete('/admin/tags/:id', requireAuth, requireAdmin, (req, res) => {
+  try {
+    const tagId = parseInt(req.params.id);
+    const existing = db.prepare('SELECT id, name FROM tags WHERE id = ?').get(tagId);
+    if (!existing) return res.status(404).json({ error: 'Tag not found' });
+    
+    // Remove tag from all markets, then delete the tag itself
+    db.prepare('DELETE FROM market_tags WHERE tag_id = ?').run(tagId);
+    db.prepare('DELETE FROM tags WHERE id = ?').run(tagId);
+    logActivity(req.user.user_id, 'delete_tag', `Deleted tag: ${existing.name}`);
+    res.json({ ok: true, name: existing.name });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to delete tag' });
+  }
+});
+
 app.patch('/api/markets/:id/tags', requireAuth, requireAdmin, (req, res) => {
   try {
     const marketId = parseInt(req.params.id);
