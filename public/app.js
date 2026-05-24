@@ -1066,7 +1066,8 @@ window.deleteMarket = async function (marketId, title) {
   if (!confirmed) return;
   try {
     await api(`/api/markets/${marketId}`, { method: 'DELETE' });
-    loadMarkets();
+    if (currentPage === 'legacy') loadLegacyMarkets();
+    else loadMarkets();
     showToast('Market deleted', 'success');
   } catch (err) {
     showToast(err.message);
