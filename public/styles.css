@@ -644,9 +644,17 @@ body.announcements-visible .container {
   font-weight: 700;
   color: var(--text);
   line-height: 1.35;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  flex: 1 1 auto;
+  min-width: 0;
+  word-wrap: break-word;
+}
+
+@media (min-width: 641px) {
+  .market-title {
+    white-space: normal;
+    overflow: visible;
+    text-overflow: clip;
+  }
 }
 .market-desc {
   font-size: 0.85rem;
@@ -841,6 +849,11 @@ body.announcements-visible .container {
   font-size: 1rem;
   font-weight: 600;
   color: var(--text);
+  white-space: normal;
+  word-wrap: break-word;
+  flex: 1 1 auto;
+  min-width: 0;
+  margin-right: 0.5rem;
 }
 .bet-sheet-body input {
   width: 100%;

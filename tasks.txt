@@ -2,8 +2,7 @@
 
 - fake ads for worst performer of the week
 
-- fix time picker for new market on desktop
-- auto remove tags with no makrets (or better just allow admin to remove)
+- auto remove tags with no markets (or better just allow admin to remove)
 
 
 maybe
@@ -29,3 +28,4 @@ done
 - dont show voters until it's closed
 - tags
 - announcements (admin created)
+- fix time picker for new market on desktop
