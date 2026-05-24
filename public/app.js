@@ -1314,11 +1314,18 @@ async function loadMarkets() {
 async function loadLegacyMarkets() {
   try {
     const search = $('#legacy-search')?.value.trim() || '';
-    const params = new URLSearchParams({ type: 'resolved' });
-    if (search) params.set('search', search);
-    let markets = await api(`/api/markets?${params}`);
-
-    renderMarketsLegacy(markets, search ? 'No resolved markets match your search' : 'No resolved markets yet');
+    // Load resolved + expired-but-unresolved markets
+    const [resolvedMarkets, expiredMarkets] = await Promise.all([
+      api('/api/markets?type=resolved' + (search ? `&search=${encodeURIComponent(search)}` : '')),
+      api('/api/markets?type=expired')
+    ]);
+    const allMarkets = [...expiredMarkets, ...resolvedMarkets];
+    const emptyText = search
+      ? 'No resolved or expired markets match your search'
+      : (expiredMarkets.length
+        ? 'No resolved markets yet'
+        : 'No resolved markets yet');
+    renderMarketsLegacy(allMarkets, emptyText);
   } catch (err) {
     if (!isNetworkError(err)) renderMarketsLegacy([]);
   }
@@ -1690,7 +1697,11 @@ function renderMarketsLegacy(markets, emptyText = 'No resolved markets yet') {
   const noPct = (m) => poolPercent(m.yes_pool, m.no_pool, 'no');
 
   container.innerHTML = markets.map((m) => {
-    const badge = `<span class="resolved-badge resolved-${m.resolution}">Resolved: ${m.resolution.toUpperCase()}</span>`;
+    const isResolved = m.resolved === 1;
+    const isExpiredUnresolved = !isResolved && m.expires_at && m.expires_at <= Math.floor(Date.now() / 1000);
+    const badge = isResolved
+      ? `<span class="resolved-badge resolved-${m.resolution}">Resolved: ${m.resolution.toUpperCase()}</span>`
+      : (isExpiredUnresolved ? `<span class="expired-badge">⏰ Expired</span>` : '');
     const expiryInfo = formatExpiry(m.expires_at);
     const isExpired = expiryInfo && expiryInfo.expired;
     const expiryClass = isExpired ? 'expiry-expired' : (expiryInfo?.urgent ? 'expiry-urgent' : 'expiry-active');
@@ -1700,8 +1711,15 @@ function renderMarketsLegacy(markets, emptyText = 'No resolved markets yet') {
     const betCountBadge = m.bet_count > 0 ? `<span class="bet-count-badge">${m.bet_count} bet${m.bet_count !== 1 ? 's' : ''}</span>` : '';
     const timeAgoLabel = m.created_at ? timeAgo(m.created_at) : '';
     const pinIcon = m.is_pinned ? '<span class="pin-icon">📌</span> ' : '';
+    const resolveButtons = (isExpiredUnresolved && currentUser?.role === 'admin')
+      ? `<div class="resolve-section">
+          <span class="resolve-label">Admin: Resolve this market</span>
+          <button class="btn btn-sm btn-success resolve-btn" onclick="resolveMarket(${m.id}, 'yes')">Resolve Yes</button>
+          <button class="btn btn-sm btn-danger resolve-btn" onclick="resolveMarket(${m.id}, 'no')">Resolve No</button>
+        </div>`
+      : '';
     return `
-      <div class="market-card">
+      <div class="market-card ${isExpiredUnresolved ? 'market-expired' : ''}">
         <div class="market-header">
           <span class="market-title">${pinIcon}${esc(m.title)}</span>
           <div class="market-header-right">
@@ -1733,13 +1751,14 @@ function renderMarketsLegacy(markets, emptyText = 'No resolved markets yet') {
           <span class="market-meta-spacer"></span>
           <span class="market-time">${timeAgoLabel}</span>
         </div>
+        ${resolveButtons}
         <div class="market-card-body">
           ${renderMarketActions(m)}
         </div>
-        <div class="voters-section">
+        ${isResolved ? `<div class="voters-section">
           <button class="voters-toggle" onclick="toggleVoters(${m.id}, this)">👥 See voters</button>
           <div class="voters-content" id="voters-${m.id}"></div>
-        </div>
+        </div>` : ''}
       </div>`;
   }).join('');
 }

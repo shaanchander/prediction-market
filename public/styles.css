@@ -902,6 +902,47 @@ body.announcements-visible .container {
   color: var(--text-dim);
 }
 
+/* Expired but unresolved badge */
+.expired-badge {
+  display: inline-block;
+  padding: 0.25rem 0.6rem;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  background: rgba(255, 183, 77, 0.2);
+  color: #ffb74d;
+  text-transform: uppercase;
+}
+
+/* Expired market card styling */
+.market-card.market-expired {
+  border-color: rgba(255, 183, 77, 0.3);
+  background: rgba(255, 183, 77, 0.03);
+}
+
+/* Admin resolve section in history */
+.resolve-section {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem;
+  margin: 0.5rem 0;
+  background: rgba(255, 183, 77, 0.08);
+  border: 1px solid rgba(255, 183, 77, 0.2);
+  border-radius: 8px;
+  flex-wrap: wrap;
+}
+.resolve-label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #ffb74d;
+  margin-right: auto;
+}
+.resolve-btn {
+  padding: 0.4rem 0.8rem;
+  font-size: 0.8rem;
+}
+
 .resolve-row { display: flex; gap: 0.5rem; margin-top: 0.5rem; }
 
 /* Bet Count Badge */

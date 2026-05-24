@@ -337,6 +337,14 @@ const getResolvedMarkets = db.prepare(`
   WHERE m.resolved = 1
   ORDER BY m.is_pinned DESC, m.pin_order ASC, m.created_at DESC
 `);
+const getExpiredMarkets = db.prepare(`
+  SELECT m.*, u.username AS creator_username, c.name AS category_name, c.color AS category_color
+  FROM markets m 
+  JOIN users u ON m.creator_id = u.id 
+  LEFT JOIN categories c ON m.category_id = c.id
+  WHERE m.resolved = 0 AND m.expires_at IS NOT NULL AND m.expires_at <= ?
+  ORDER BY m.expires_at ASC, m.is_pinned DESC, m.pin_order ASC, m.created_at DESC
+`);
 const getAllMarkets = db.prepare(`
   SELECT m.*, u.username AS creator_username, c.name AS category_name, c.color AS category_color
   FROM markets m 
@@ -682,6 +690,8 @@ app.get('/api/markets', requireAuth, (req, res) => {
       if (type === 'resolved') markets = markets.filter(m => m.resolved === 1);
     } else if (type === 'active') {
       markets = getActiveMarkets.all(Math.floor(Date.now() / 1000));
+    } else if (type === 'expired') {
+      markets = getExpiredMarkets.all(Math.floor(Date.now() / 1000));
     } else if (type === 'resolved') {
       markets = getResolvedMarkets.all();
     } else {
