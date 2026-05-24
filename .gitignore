@@ -6,3 +6,4 @@ backups/
 .env
 .DS_Store
 .vscode/
+.claude/
