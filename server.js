@@ -760,13 +760,14 @@ app.delete('/api/markets/:id', requireAuth, (req, res) => {
 
     const market = getMarketById.get(marketId);
     if (!market) return res.status(404).json({ error: 'Market not found' });
-    if (market.resolved) return res.status(400).json({ error: 'Cannot delete a resolved market' });
 
     // Only creator or admin can delete
     if (market.creator_id !== req.user.user_id && req.user.role !== 'admin') {
       return res.status(403).json({ error: 'Only the creator or an admin can delete this market' });
     }
 
+    // Delete bets first (FK constraint), then market
+    db.prepare('DELETE FROM bets WHERE market_id = ?').run(marketId);
     deleteMarket.run(marketId);
     logActivity(req.user.user_id, 'delete_market', `Deleted market: ${market.title}`);
     res.json({ ok: true, title: market.title });
