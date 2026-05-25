@@ -1,12 +1,9 @@
-- make markets page more readable on desktop (maybe 2 wide)
-
 - fake ads for worst performer of the week
 
 - auto remove tags with no markets (or better just allow admin to remove)
 
 
 maybe
-- make not a single page app?
 - add fake scams for certain users
 - different user roles? restricted to certain categories?
 
@@ -14,6 +11,8 @@ maybe
 cancelled?
 - make bet amount a slider?
 - anonymous bet (maybe when making market as well?)
+- make not a single page app?
+- make markets page more readable on desktop (maybe 2 wide)
 
 
 done
