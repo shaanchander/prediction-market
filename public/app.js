@@ -7,6 +7,16 @@ let categoriesList = [];
 let availableTags = [];
 let selectedTags = []; // Tags selected during market creation
 
+// --- Token Refresh ---
+async function refreshMyTokens() {
+  if (!token || !currentUser) return;
+  try {
+    const user = await api('/api/me');
+    currentUser.tokens = user.tokens;
+    updateUserBar();
+  } catch {}
+}
+
 // --- Live Polling ---
 let pollingInterval = null;
 const POLL_INTERVAL_MS = 10000; // 10 seconds
@@ -453,6 +463,7 @@ $('#grant-tokens-form').addEventListener('submit', async (e) => {
     const data = await api('/admin/grant-tokens', { method: 'POST', body: JSON.stringify({ username, amount }) });
     flashMsg($('#grant-tokens-msg'), `Granted ${amount} tokens to "${esc(username)}". New balance: ${data.new_balance}.`, 'success');
     $('#grant-tokens-form').reset();
+    refreshMyTokens();
     loadAdminUsers();
     loadAdminStats();
   } catch (err) {
@@ -1068,6 +1079,7 @@ window.deleteMarket = async function (marketId, title) {
     await api(`/api/markets/${marketId}`, { method: 'DELETE' });
     if (currentPage === 'legacy') loadLegacyMarkets();
     else loadMarkets();
+    refreshMyTokens();
     showToast('Market deleted — all bets refunded', 'success');
   } catch (err) {
     showToast(err.message);
@@ -1274,7 +1286,7 @@ window.resolveMarket = async function (marketId, resolution) {
   try {
     await api('/api/resolve', { method: 'POST', body: JSON.stringify({ market_id: marketId, resolution }) });
     loadMarkets();
-    if (currentUser) api('/api/me').then((u) => { currentUser = u; updateUserBar(); });
+    refreshMyTokens();
     showToast(`Market resolved as ${resolution.toUpperCase()}`, 'success');
   } catch (err) {
     showToast(err.message);
@@ -1528,6 +1540,7 @@ window.adminRefundBet = async function (betId, username, amount) {
   if (!confirmed) return;
   try {
     await api(`/admin/bets/${betId}/refund`, { method: 'POST' });
+    refreshMyTokens();
     showToast(`Refunded ${amount} tokens to ${esc(username)}`, 'success');
     // Reload bets list and market dropdown
     const marketId = $('#admin-market-select').value;
@@ -1606,6 +1619,7 @@ $('#admin-refund-delete-btn').addEventListener('click', async () => {
   if (!confirmed) return;
   try {
     await api(`/admin/markets/${marketId}/refund-and-delete`, { method: 'POST' });
+    refreshMyTokens();
     showToast('Market deleted and all bets refunded', 'success');
     hide($('#admin-bets-container'));
     loadAdminMarketSelect();
