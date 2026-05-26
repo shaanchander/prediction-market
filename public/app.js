@@ -1062,13 +1062,13 @@ window.editMarket = async function (marketId, title, description, expiresAt) {
 
 // --- Delete Market ---
 window.deleteMarket = async function (marketId, title) {
-  const confirmed = await showConfirmModal('Delete Market', `Delete market "${esc(title)}"? This will also remove all bets on it.`);
+  const confirmed = await showConfirmModal('Delete Market', `Delete market "${esc(title)}"? This will refund all bets and permanently delete the market.`);
   if (!confirmed) return;
   try {
     await api(`/api/markets/${marketId}`, { method: 'DELETE' });
     if (currentPage === 'legacy') loadLegacyMarkets();
     else loadMarkets();
-    showToast('Market deleted', 'success');
+    showToast('Market deleted — all bets refunded', 'success');
   } catch (err) {
     showToast(err.message);
   }

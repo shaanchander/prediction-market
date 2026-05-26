@@ -766,11 +766,36 @@ app.delete('/api/markets/:id', requireAuth, (req, res) => {
       return res.status(403).json({ error: 'Only the creator or an admin can delete this market' });
     }
 
+    // Cannot refund bets on resolved markets
+    if (market.resolved) {
+      return res.status(400).json({ error: 'Cannot delete a resolved market' });
+    }
+
+    // Get all bets and refund each one (bet amount + tax)
+    const bets = getBetsForMarketWithUserId.all(marketId);
+    let refundedCount = 0;
+    let totalTaxRefunded = 0;
+    for (const bet of bets) {
+      const user = getUserById.get(bet.user_id);
+      if (user) {
+        const tax = Math.ceil(bet.amount * BET_TAX_RATE);
+        updateUserTokens.run(user.tokens + bet.amount + tax, bet.user_id);
+        updateMarketTaxBurnedDown.run(tax, bet.market_id);
+        totalTaxRefunded += tax;
+        if (bet.side === 'yes') {
+          updateMarketPoolDown.run(bet.amount, 0, bet.market_id);
+        } else {
+          updateMarketPoolDown.run(0, bet.amount, bet.market_id);
+        }
+        refundedCount++;
+      }
+    }
+
     // Delete bets first (FK constraint), then market
     db.prepare('DELETE FROM bets WHERE market_id = ?').run(marketId);
     deleteMarket.run(marketId);
-    logActivity(req.user.user_id, 'delete_market', `Deleted market: ${market.title}`);
-    res.json({ ok: true, title: market.title });
+    logActivity(req.user.user_id, 'delete_market', `Refunded ${refundedCount} bets and deleted market: ${market.title}`);
+    res.json({ ok: true, title: market.title, refunded_count: refundedCount });
   } catch (err) {
     res.status(500).json({ error: 'Failed to delete market' });
   }
