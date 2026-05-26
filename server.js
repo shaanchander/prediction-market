@@ -910,13 +910,6 @@ app.post('/api/bet', requireAuth, (req, res) => {
       const maxBet = Math.floor(currentUser.tokens * 0.2);
       if (betAmount > maxBet) throw new Error(`Maximum bet is ${maxBet} tokens (20% of balance)`);
 
-      // Prevent betting on both sides of the same market
-      const existingBets = getUserBetsOnMarket.all(currentUser.id, market_id);
-      const hasYes = existingBets.some(b => b.side === 'yes');
-      const hasNo = existingBets.some(b => b.side === 'no');
-      if (side === 'yes' && hasNo) throw new Error(`You already bet NO on this market. You can't bet on both sides.`);
-      if (side === 'no' && hasYes) throw new Error(`You already bet YES on this market. You can't bet on both sides.`);
-
       // Deduct tokens (bet + tax)
       updateUserTokens.run(currentUser.tokens - totalCost, currentUser.id);
 
