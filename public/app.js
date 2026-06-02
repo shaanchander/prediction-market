@@ -209,11 +209,6 @@ $('#confirm-modal-cancel').addEventListener('click', () => {
   else if (confirmResolve) { confirmResolve(false); confirmResolve = null; }
 });
 
-$('#confirm-modal-cancel').addEventListener('click', () => {
-  hide($('#confirm-modal'));
-  if (confirmResolve) { confirmResolve(false); confirmResolve = null; }
-});
-
 // --- Custom Prompt Modal ---
 let promptResolve = null;
 
