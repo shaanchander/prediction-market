@@ -576,16 +576,12 @@ app.get('/api/me', requireAuth, (req, res) => {
 // --- Market Endpoints ---
 app.post('/api/markets', requireAuth, (req, res) => {
   try {
-    const { title, description, max_stake, expires_at, category_id, tags } = req.body;
+    const { title, description, expires_at, category_id, tags } = req.body;
     const cleanTitle = sanitizeHtml(title);
     const cleanDesc = sanitizeHtml(description || '');
     if (!cleanTitle || cleanTitle.trim().length === 0) return res.status(400).json({ error: 'Title is required' });
     if (cleanTitle.trim().length > 200) return res.status(400).json({ error: 'Title must be 200 characters or less' });
     if (cleanDesc.trim().length > 2000) return res.status(400).json({ error: 'Description must be 2000 characters or less' });
-
-    const maxStake = max_stake ? parseInt(max_stake) : null;
-
-    if (maxStake !== null && maxStake < 1) return res.status(400).json({ error: 'Max stake must be at least 1' });
 
     // Validate category_id if provided
     let categoryId = null;
@@ -611,7 +607,7 @@ app.post('/api/markets', requireAuth, (req, res) => {
       cleanTitle.trim(),
       cleanDesc.trim(),
       1,
-      maxStake,
+      null, // max_stake removed — kept in DB for old DB compat
       expiresAt,
       Math.floor(Date.now() / 1000)
     );

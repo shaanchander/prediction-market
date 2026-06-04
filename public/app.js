@@ -397,14 +397,13 @@ $('#market-form').addEventListener('submit', async (e) => {
   e.preventDefault();
   const title = $('#market-title').value.trim();
   const description = $('#market-desc').value.trim();
-  const max_stake = $('#market-max').value ? parseInt($('#market-max').value) : null;
   const expires_at = $('#market-expires').value || null;
   const category_id = $('#market-category').value || null;
   const tags = [...selectedTags];
   selectedTags = []; // Reset for next market
   clearTagsInput();
   try {
-    await api('/api/markets', { method: 'POST', body: JSON.stringify({ title, description, max_stake, expires_at, category_id, tags }) });
+    await api('/api/markets', { method: 'POST', body: JSON.stringify({ title, description, expires_at, category_id, tags }) });
     showToast('Market created!', 'success');
     const overlay = $('#create-market-sheet-overlay');
     overlay.classList.remove('bet-sheet-open');
@@ -834,8 +833,8 @@ function renderMarkets(markets, emptyIcon = '📊', emptyText = 'No active marke
           <button class="btn btn-sm btn-yes" onclick="placeBet(${m.id}, 'yes', ${m.yes_pool}, ${m.no_pool})">Bet Yes</button>
           <button class="btn btn-sm btn-no" onclick="placeBet(${m.id}, 'no', ${m.yes_pool}, ${m.no_pool})">Bet No</button>
         </div>
-        <span class="bet-hint">Min 1${m.max_stake ? ` / Max ${m.max_stake}` : ''} · 3% tax</span>
-        <button class="btn btn-primary bet-sheet-trigger" onclick="openBetSheet(${m.id}, 1, ${m.max_stake || 'null'}, '${esc(m.title)}', ${m.yes_pool}, ${m.no_pool})">Place Bet</button>`;
+        <span class="bet-hint">Min 1 · 3% tax</span>
+        <button class="btn btn-primary bet-sheet-trigger" onclick="openBetSheet(${m.id}, '${esc(m.title)}', ${m.yes_pool}, ${m.no_pool})">Place Bet</button>`;
 
     const resolveSection = resolved
       ? ''
@@ -1203,7 +1202,7 @@ async function loadUserBetsMap() {
   } catch {}
 }
 
-window.openBetSheet = function (marketId, minStake, maxStake, title, yesPool, noPool) {
+window.openBetSheet = function (marketId, title, yesPool, noPool) {
   currentBetMarketId = marketId;
   window.currentBetYesPool = yesPool;
   window.currentBetNoPool = noPool;
@@ -1211,10 +1210,7 @@ window.openBetSheet = function (marketId, minStake, maxStake, title, yesPool, no
   $('#bet-sheet-amount').min = 1;
   $('#bet-sheet-amount').value = '';
   const maxBet = Math.floor(currentUser.tokens * 0.2);
-  let hint = 'Min 1';
-  if (maxStake) hint += ' / Max ' + maxStake;
-  hint += ' · Max bet: ' + maxBet + ' (20% of balance)';
-  hint += ' · 3% tax';
+  const hint = 'Min 1 · Max bet: ' + maxBet + ' (20% of balance) · 3% tax';
   $('#bet-sheet-hint').textContent = hint;
   const overlay = $('#bet-sheet-overlay');
   overlay.classList.remove('hidden');
