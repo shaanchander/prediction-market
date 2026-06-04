@@ -1070,7 +1070,7 @@ body.announcements-visible .container {
   border-radius: var(--radius);
   max-height: 180px;
   overflow-y: auto;
-  z-index: 100;
+  z-index: 1100;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
 }
 .tags-dropdown .tag-option {
