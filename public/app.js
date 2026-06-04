@@ -397,7 +397,6 @@ $('#market-form').addEventListener('submit', async (e) => {
   e.preventDefault();
   const title = $('#market-title').value.trim();
   const description = $('#market-desc').value.trim();
-  const min_stake = parseInt($('#market-min').value) || 1;
   const max_stake = $('#market-max').value ? parseInt($('#market-max').value) : null;
   const expires_at = $('#market-expires').value || null;
   const category_id = $('#market-category').value || null;
@@ -405,7 +404,7 @@ $('#market-form').addEventListener('submit', async (e) => {
   selectedTags = []; // Reset for next market
   clearTagsInput();
   try {
-    await api('/api/markets', { method: 'POST', body: JSON.stringify({ title, description, min_stake, max_stake, expires_at, category_id, tags }) });
+    await api('/api/markets', { method: 'POST', body: JSON.stringify({ title, description, max_stake, expires_at, category_id, tags }) });
     showToast('Market created!', 'success');
     const overlay = $('#create-market-sheet-overlay');
     overlay.classList.remove('bet-sheet-open');
@@ -825,7 +824,7 @@ function renderMarkets(markets, emptyIcon = '📊', emptyText = 'No active marke
       ? (isExpired ? '<div class="expired-notice">⏱ Betting is closed — market has expired</div>' : '')
       : `
         <div class="bet-row">
-          <input type="number" id="bet-amount-${m.id}" min="${m.min_stake}" placeholder="Amount" />
+          <input type="number" id="bet-amount-${m.id}" min="1" placeholder="Amount" />
           <div class="quick-bet">
             <button class="quick-bet-btn" onclick="setPct(${m.id}, 1)">1%</button>
             <button class="quick-bet-btn" onclick="setPct(${m.id}, 5)">5%</button>
@@ -835,8 +834,8 @@ function renderMarkets(markets, emptyIcon = '📊', emptyText = 'No active marke
           <button class="btn btn-sm btn-yes" onclick="placeBet(${m.id}, 'yes', ${m.yes_pool}, ${m.no_pool})">Bet Yes</button>
           <button class="btn btn-sm btn-no" onclick="placeBet(${m.id}, 'no', ${m.yes_pool}, ${m.no_pool})">Bet No</button>
         </div>
-        <span class="bet-hint">Min ${m.min_stake}${m.max_stake ? ` / Max ${m.max_stake}` : ''} · 3% tax</span>
-        <button class="btn btn-primary bet-sheet-trigger" onclick="openBetSheet(${m.id}, ${m.min_stake}, ${m.max_stake || 'null'}, '${esc(m.title)}', ${m.yes_pool}, ${m.no_pool})">Place Bet</button>`;
+        <span class="bet-hint">Min 1${m.max_stake ? ` / Max ${m.max_stake}` : ''} · 3% tax</span>
+        <button class="btn btn-primary bet-sheet-trigger" onclick="openBetSheet(${m.id}, 1, ${m.max_stake || 'null'}, '${esc(m.title)}', ${m.yes_pool}, ${m.no_pool})">Place Bet</button>`;
 
     const resolveSection = resolved
       ? ''
@@ -1209,10 +1208,10 @@ window.openBetSheet = function (marketId, minStake, maxStake, title, yesPool, no
   window.currentBetYesPool = yesPool;
   window.currentBetNoPool = noPool;
   $('#bet-sheet-title').textContent = title || 'Place Bet';
-  $('#bet-sheet-amount').min = minStake;
+  $('#bet-sheet-amount').min = 1;
   $('#bet-sheet-amount').value = '';
   const maxBet = Math.floor(currentUser.tokens * 0.2);
-  let hint = 'Min ' + minStake;
+  let hint = 'Min 1';
   if (maxStake) hint += ' / Max ' + maxStake;
   hint += ' · Max bet: ' + maxBet + ' (20% of balance)';
   hint += ' · 3% tax';
