@@ -828,7 +828,7 @@ function renderMarkets(markets, emptyIcon = '📊', emptyText = 'No active marke
             <button class="quick-bet-btn" onclick="setPct(${m.id}, 1)">1%</button>
             <button class="quick-bet-btn" onclick="setPct(${m.id}, 5)">5%</button>
             <button class="quick-bet-btn" onclick="setPct(${m.id}, 10)">10%</button>
-            <button class="quick-bet-btn quick-bet-max" onclick="setPct(${m.id}, 20)">20%</button>
+            <button class="quick-bet-btn quick-bet-max" onclick="setPct(${m.id}, 30)">30%</button>
           </div>
           <button class="btn btn-sm btn-yes" onclick="placeBet(${m.id}, 'yes', ${m.yes_pool}, ${m.no_pool})">Bet Yes</button>
           <button class="btn btn-sm btn-no" onclick="placeBet(${m.id}, 'no', ${m.yes_pool}, ${m.no_pool})">Bet No</button>
@@ -1209,8 +1209,8 @@ window.openBetSheet = function (marketId, title, yesPool, noPool) {
   $('#bet-sheet-title').textContent = title || 'Place Bet';
   $('#bet-sheet-amount').min = 1;
   $('#bet-sheet-amount').value = '';
-  const maxBet = Math.floor(currentUser.tokens * 0.2);
-  const hint = 'Min 1 · Max bet: ' + maxBet + ' (20% of balance) · 3% tax';
+  const maxBet = Math.floor(currentUser.tokens * 0.3);
+  const hint = 'Min 1 · Max bet: ' + maxBet + ' (30% of balance) · 3% tax';
   $('#bet-sheet-hint').textContent = hint;
   const overlay = $('#bet-sheet-overlay');
   overlay.classList.remove('hidden');

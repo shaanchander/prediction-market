@@ -900,9 +900,9 @@ app.post('/api/bet', requireAuth, (req, res) => {
       return res.status(400).json({ error: `Maximum stake is ${market.max_stake}` });
     }
 
-    // 20% cap
-    const maxBet = Math.floor(user.tokens * 0.2);
-    if (betAmount > maxBet) return res.status(400).json({ error: `Maximum bet is ${maxBet} tokens (20% of balance)` });
+    // 30% cap
+    const maxBet = Math.floor(user.tokens * 0.3);
+    if (betAmount > maxBet) return res.status(400).json({ error: `Maximum bet is ${maxBet} tokens (30% of balance)` });
 
     // Calculate tax (rounded up)
     const tax = Math.ceil(betAmount * BET_TAX_RATE);
@@ -924,9 +924,9 @@ app.post('/api/bet', requireAuth, (req, res) => {
       // Sufficient balance (bet + tax) — checked inside transaction
       if (currentUser.tokens < totalCost) throw new Error('Insufficient tokens');
 
-      // 20% cap — checked inside transaction to prevent race condition bypass
-      const maxBet = Math.floor(currentUser.tokens * 0.2);
-      if (betAmount > maxBet) throw new Error(`Maximum bet is ${maxBet} tokens (20% of balance)`);
+      // 30% cap — checked inside transaction to prevent race condition bypass
+      const maxBet = Math.floor(currentUser.tokens * 0.3);
+      if (betAmount > maxBet) throw new Error(`Maximum bet is ${maxBet} tokens (30% of balance)`);
 
       // Deduct tokens (bet + tax)
       updateUserTokens.run(currentUser.tokens - totalCost, currentUser.id);
