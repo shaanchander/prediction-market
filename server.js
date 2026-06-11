@@ -16,6 +16,27 @@ const JWT_EXPIRY = process.env.JWT_EXPIRY || '7d';
 const BET_TAX_RATE = 0.03; // 3% tax on bets, burned (deflationary)
 const fs = require('fs');
 
+// --- ntfy Push Notifications ---
+const NTFY_ENABLED = process.env.NTFY_ENABLED === 'true';
+const NTFY_URL = process.env.NTFY_URL;
+const NTFY_USER = process.env.NTFY_USER;
+const NTFY_PASSWORD = process.env.NTFY_PASSWORD;
+
+function sendNtfyNotification(title, message) {
+  if (!NTFY_ENABLED || !NTFY_URL || !NTFY_USER || !NTFY_PASSWORD) return;
+  const auth = Buffer.from(`${NTFY_USER}:${NTFY_PASSWORD}`).toString('base64');
+  fetch(NTFY_URL, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Basic ${auth}`,
+      'Title': title,
+      'Priority': 'default',
+      'Content-Type': 'text/plain',
+    },
+    body: message,
+  }).catch(err => console.error('ntfy push failed:', err.message));
+}
+
 // --- Database Backup ---
 const BACKUP_DIR = path.join(__dirname, 'backups');
 const BACKUP_RETENTION_COUNT = 7; // Keep the most recent N backups
@@ -628,6 +649,10 @@ app.post('/api/markets', requireAuth, (req, res) => {
 
     const market = getMarketById.get(result.lastInsertRowid);
     logActivity(req.user.user_id, 'create_market', `Created market: ${market.title}`);
+    const expiry = market.expires_at
+      ? ` · Expires ${new Date(market.expires_at * 1000).toLocaleDateString()}`
+      : '';
+    sendNtfyNotification(`New market: ${market.title}`, `A new prediction market was created${expiry}`);
     res.status(201).json(market);
   } catch (err) {
     res.status(500).json({ error: 'Failed to create market' });
