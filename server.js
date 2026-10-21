@@ -22,6 +22,18 @@ const NTFY_URL = process.env.NTFY_URL;
 const NTFY_USER = process.env.NTFY_USER;
 const NTFY_PASSWORD = process.env.NTFY_PASSWORD;
 
+// HTTP headers are limited to Latin-1; map smart quotes/dashes to their ASCII
+// forms and drop any other non-Latin-1 chars (e.g. emoji) so a title with a
+// curly apostrophe can't kill the push
+function toLatin1(s) {
+  return s
+    .replace(/[‘’‚′]/g, "'")
+    .replace(/[“”″]/g, '"')
+    .replace(/[–—]/g, '-')
+    .normalize('NFKC')
+    .replace(/[^\x00-\xFF]/g, '');
+}
+
 function sendNtfyNotification(title, message) {
   if (!NTFY_ENABLED || !NTFY_URL || !NTFY_USER || !NTFY_PASSWORD) return;
   const auth = Buffer.from(`${NTFY_USER}:${NTFY_PASSWORD}`).toString('base64');
@@ -29,7 +41,7 @@ function sendNtfyNotification(title, message) {
     method: 'POST',
     headers: {
       'Authorization': `Basic ${auth}`,
-      'Title': title,
+      'Title': toLatin1(title),
       'Priority': 'default',
       'Content-Type': 'text/plain',
     },
